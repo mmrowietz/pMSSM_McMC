@@ -356,7 +356,6 @@ def run(arguments):
         #write point to root, start loop
         lastaccepted = prepare_fill(lastaccepted,outtree)#add the rest of the point info, fill the tree branches
         outtree.Fill()
-        print iter_ix,start+tend
         if iter_ix == start+tend:
             print "Made all "+str(tend)+" iterations, moving "+outname+" to storage"
             outtree.BuildIndex("chain_index","iteration_index")
