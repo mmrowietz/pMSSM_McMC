@@ -26,3 +26,7 @@ run mcmc.py (python 2.7) with the following options
 
 
 A parallelized batch execution of different chains needs to be implemented and adapted to the local batch system.
+
+todo:
+-mode to start from non-random point
+-description of how to add observables to likelihood

@@ -1,11 +1,13 @@
 #this file should contain the mcmc decision function and the point generator
 import random
-from math import pi,exp,sqrt
+from math import sqrt
 import argparse
 import os
 from ROOT import *
 import numpy as np
 from tqdm import tqdm
+import utils
+import likelihood
 #set up the parameter ranges
 parameter_ranges ={}
 for parameter in ["mu","M1","M2"]:
@@ -16,38 +18,27 @@ for parameter in ["Ml1","Mr1","Ml3","Mr3","Mh3",]:
     parameter_ranges[parameter] = (0,4000)
 for parameter in ["At","Ab","Al"]:
     parameter_ranges[parameter] = (-7000,7000)
-
-observable_results = {}
-observable_results["mtop"] = {"value":173.1,"uncertainty":0.9}
-observable_results["mbottom"] = {"value":4.18,"uncertainty":[0.03,0.04]}
-observable_results["alpha_s"] = {"value":0.1181,"uncertainty":0.0011}
-observable_results["mhiggs"] = {"value":125.26}
 parameter_ranges["tb"] = (2,60)
-width_coefficient = 0.1
+
+width_coefficient = 0.1 #the width coefficient of the gaussian for the mcmc step. This coefficient is multiplied by the parameter range to give the width of the gaussian.
 
 homedir = "/nfs/dust/cms/user/mrowietm/python_scan/"
 packagedir = homedir+"packages/"
 spnexe = packagedir+"SPheno-4.0.4/bin/SPheno"
 fhexe = packagedir+"FeynHiggs-2.16.1/bin/FeynHiggs"
-#storage = homedir+"storage/"
 devnull = '>& /dev/null'
+
+#containers for the tree branches. Numpy arrays are used as an interface between python types and the root branches
 tree_branches = {}
 tree_branches["likelihood"]= np.zeros(1,dtype = float)
 tree_branches["iteration_index"] = np.zeros(1,dtype = int)
 tree_branches["accepted_index"] = np.zeros(1,dtype = int)
 tree_branches["chain_index"] = np.zeros(1,dtype = int)
-for obs in observable_results:
+for obs in utils.likelihood_contributions:
     tree_branches[obs] = np.zeros(1,dtype=float)
 for param in parameter_ranges.keys():
     tree_branches[param] = np.zeros(1,dtype=float)
 
-def gauss(x,mu,sigma):
-    return (1./(2*pi*sigma))*exp(-((x-mu)**2)/(2*sigma**2))
-def gauss_pm(x,mu,sigma_p,sigma_m):
-    if x<mu:
-       return (1./(2*pi*sigma_m))*exp(-((x-mu)**2)/(2*sigma_m**2))
-    else:
-        return (1./(2*pi*sigma_p))*exp(-((x-mu)**2)/(2*sigma_p**2))
 #sign permutations
 def get_sign(signchoice):
     sign_permutation = (0,0,0)#sign_permutation = (sign(mu),sign(M1),sign(M2))
@@ -99,77 +90,6 @@ def generate_point(input_point = {},signchoice = 0):
         output_point["alpha_s"] = random.gauss(input_point["alpha_s"],0.0011*width_coefficient)
     output_point["scale"] = sqrt(output_point["Mq3"]*output_point["Mu3"])
     return output_point
-    
-    
-def write_spheno_input(candidate_point):
-    #write input file for spheno
-    block_modsel = ["BLOCK MODSEL #Model selection","1 0 #General MSSM"]
-    block_sphenoinput = ["BLOCK SPhenoInput #Spheno specific input"]
-    block_sphenoinput.append("1 -1 #error level")
-    block_sphenoinput.append("2 0 #SPA convention")
-    block_sphenoinput.append("11 1 #calculate branching ratios")
-    block_sphenoinput.append("12 1.0E-04 #write only branching ratios larger than this value")
-    block_sphenoinput.append("21 0 #calculate cross sections")
-    block_sphenoinput.append("38 3 #use three-loop SM-RGEs and two-loop SUSY-RGEs")
-    block_sminputs = ["BLOCK SMINPUTS #Standard model inputs"]
-    block_sminputs.append("2 1.166379E-5 #G_F")
-    block_sminputs.append("3 "+str(candidate_point["alpha_s"])+" #alpha_s(MZ) SM MSbar")
-    block_sminputs.append("4 91.1876 #Z pole mass")
-    block_sminputs.append("5 "+str(candidate_point["mbottom"])+" #m_b(m_b) SM MSbar")
-    block_sminputs.append("6 "+str(candidate_point["mtop"])+" #m_top(pole)")
-    block_extpar = ["BLOCK EXTPAR #Input parameters"]
-    block_extpar.append("0 "+str(candidate_point["scale"])+" #Input scale")
-    block_extpar.append("1 "+str(candidate_point["M1"])+" #M1")
-    block_extpar.append("2 "+str(candidate_point["M2"])+" #M2")
-    block_extpar.append("3 "+str(candidate_point["M3"])+" #M3")
-    block_extpar.append("11 "+str(candidate_point["At"])+" #At")
-    block_extpar.append("12 "+str(candidate_point["Ab"])+" #Ab")
-    block_extpar.append("13 "+str(candidate_point["Al"])+" #Al")
-    block_extpar.append("23 "+str(candidate_point["mu"])+" #mu")
-    block_extpar.append("25 "+str(candidate_point["tb"])+" #tan beta")
-    block_extpar.append("26 "+str(candidate_point["Mh3"])+" #mA")
-    block_extpar.append("31 "+str(candidate_point["Ml1"])+" #Ml1")
-    block_extpar.append("32 "+str(candidate_point["Ml1"])+" #Ml2")
-    block_extpar.append("33 "+str(candidate_point["Ml3"])+" #Ml3")
-    block_extpar.append("34 "+str(candidate_point["Mr1"])+" #Mr1")
-    block_extpar.append("35 "+str(candidate_point["Mr1"])+" #Mr2")
-    block_extpar.append("36 "+str(candidate_point["Mr3"])+" #Mr3")
-    block_extpar.append("41 "+str(candidate_point["Mq1"])+" #Mq1")
-    block_extpar.append("42 "+str(candidate_point["Mq1"])+" #Mq2")
-    block_extpar.append("43 "+str(candidate_point["Mq3"])+" #Mq3")
-    block_extpar.append("44 "+str(candidate_point["Mu1"])+" #Mu1")
-    block_extpar.append("45 "+str(candidate_point["Mu1"])+" #Mu2")
-    block_extpar.append("46 "+str(candidate_point["Mu3"])+" #Mu3")
-    block_extpar.append("47 "+str(candidate_point["Md1"])+" #Md1")
-    block_extpar.append("48 "+str(candidate_point["Md1"])+" #Md2")
-    block_extpar.append("49 "+str(candidate_point["Md3"])+" #Md3")
-    outstring = "\n".join(["\n".join(block_modsel),"\n".join(block_sphenoinput),"\n".join(block_sminputs),"\n".join(block_extpar)])
-    outfile = "genpoint.slha"
-    with open(outfile,"w") as SpnIn:
-        SpnIn.write(outstring)
-    return outfile
-        
-def get_likelihood(observables):
-    """
-    get the likelihood for a point.
-    @param observables: Dictionary containing the observables for which the likelihood is to be computed. Observable values are keyed by observable name. If a theory uncertainty is given, it is taken to be the only uncertainty pertaining to the observable.
-    """
-    product_likelihood = 1
-
-    for obs,obsval in observables.items():
-        if obs not in observable_results:
-            print(str(obs)+" has no experimental result in database")
-            exit()
-        if "uncertainty" in obsval.keys(): #higgs-type case: center gauss on theory value with width= theory uncertainty, evaluate at experimental value
-            product_likelihood *= gauss(observable_results[obs]["value"],obsval["value"],0.5*obsval["uncertainty"])
-        else:
-            if type(observable_results[obs]["uncertainty"]) == float:
-                product_likelihood *= gauss(obsval["value"],observable_results[obs]["value"],observable_results[obs]["uncertainty"])
-            elif type(observable_results[obs]["uncertainty"]) == list:
-                product_likelihood *= gauss_pm(obsval["value"],observable_results[obs]["value"],sigma_m = observable_results[obs]["uncertainty"][0],sigma_p = observable_results[obs]["uncertainty"][1])                
-    return product_likelihood
-                
-    
 def run_spheno(inpath):
     cmd = " ".join([spnexe,inpath,devnull])
     os.system(cmd)
@@ -282,7 +202,7 @@ def setup_tree(outtree):
     outtree.Branch("accepted_index",tree_branches["accepted_index"],"accepted_index/I")
     outtree.Branch("chain_index",tree_branches["chain_index"],"chain_index/I")
     outtree.Branch("likelihood",tree_branches["likelihood"],"likelihood/D")
-    for obs in observable_results.keys():
+    for obs in likelihood.likelihood_contributions.keys():
         outtree.Branch(obs,tree_branches[obs],obs+"/D")
     for param in parameter_ranges.keys():
         outtree.Branch(param,tree_branches[param],param+"/D")
@@ -334,36 +254,6 @@ def prepare_fill(point,outtree):
     for key in tree_branches.keys():
         tree_branches[key][0]=point_info[key]
     return point_info
-def make_decision(candidate_point,prev_l):
-    new_point = {}
-    L = get_likelihood(candidate_point)
-    if L == 0:
-        return 0
-    R = L/prev_l
-    u = random.uniform(0,1)
-    if R>u:
-        return L
-    else:
-        return -1
-    #make an MCMC decision
-def clean():
-    if os.path.exists("SPheno.spc"):
-        os.system("rm SPheno.spc")
-    if os.path.exists("SPheno.spc.fh-001"):
-        os.system("rm SPheno.spc.fh-001")
-    if os.path.exists("Messages.out"):
-        os.system("rm Messages.out")
-def get_point_from_rootfile(inpath,chainix):
-    inroot = TFile(inpath)
-    intree = inroot.Get("mcmc")
-    maxiter = int(intree.GetMaximum("iteration_index"))
-    intree.GetEntryWithIndex(chainix,maxiter)
-    returndict = {}
-    for branch in intree.GetListOfBranches():
-        if branch.GetName()=="slha_file":
-            continue
-        returndict[branch.GetName()] = getattr(intree,branch.GetName())
-    return returndict
 def run(arguments):
     mode = arguments.mode
     chainix = arguments.chain_index
@@ -387,18 +277,18 @@ def run(arguments):
         finite_lh = False
         signchoice = random.randint(0,7)
         while not finite_lh:
-            clean()
+            utils.clean()
             spnerr = False
             while not spnerr:#find a viable point
-                clean()
+                utils.clean()
                 candidate = generate_point(signchoice = signchoice)#generate a point from flat prior
-                spnin = write_spheno_input(candidate)#write the input for spheno
+                spnin = utils.write_spheno_input(candidate)#write the input for spheno
                 spnerr = run_spheno(spnin) #run spheno, check if viable point
 
             if not run_feynhiggs():#run feynhiggs, replace higgs sector
                 continue
             observables = get_observables(slhapath = "SPheno.spc") #get observables for the likelihood
-            _l = get_likelihood(observables)#get likelihood
+            _l = likelihood.get_likelihood(observables)#get likelihood
             finite_lh = _l != 0
         lastaccepted["likelihood"]=_l
         lastaccepted["iteration_index"] = 1
@@ -411,7 +301,7 @@ def run(arguments):
         outtree.Fill()
     #mode 2: continue from previous point/root file?
     elif mode == "resume":
-        lastaccepted = get_point_from_rootfile(inpath,chainix)
+        lastaccepted = utils.get_point_from_rootfile(inpath,chainix)
     start = lastaccepted["iteration_index"]+1
     if mode == "resume":
         outname = "pMSSM_MCMC_"+str(chainix)+"_"+str(start)+"to"+str(min(start+move_every,start+tend))+".root"
@@ -437,17 +327,17 @@ def run(arguments):
             move = -1
         finite_lh = False
         while not finite_lh:
-            clean()
+            utils.clean()
             spnerr = False
             while not spnerr:#find a viable point
-                clean()
+                utils.clean()
                 candidate = generate_point(lastaccepted)#generate a point from the last point
-                spnin = write_spheno_input(candidate)#write the input for spheno
+                spnin = utils.write_spheno_input(candidate)#write the input for spheno
                 spnerr = run_spheno(spnin) #run spheno, check if viable point
             if not run_feynhiggs():#run feynhiggs, replace higgs sector
                 continue
             observables = get_observables(slhapath = "SPheno.spc") #get observables for the likelihood
-            _l = make_decision(observables,lastaccepted["likelihood"])#get likelihood
+            _l = likelihood.make_decision(observables,lastaccepted["likelihood"])#get likelihood
             finite_lh = _l != 0
         if _l<0:
             move +=1
