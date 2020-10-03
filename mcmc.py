@@ -320,7 +320,7 @@ def run(arguments):
             outroot.Close()
             print "Made "+str(move_every)+" iterations, moving "+outname+" to storage"
             os.system(" ".join(["mv",outname,outdir]))
-            outname = "pMSSM_MCMC_"+str(chainix)+"_"+str(iter_ix+1)+"to"+str(min(iter_ix+1+move_every,iter_ix+tend))+".root"
+            outname = "pMSSM_MCMC_"+str(chainix)+"_"+str(iter_ix)+"to"+str(min(iter_ix+move_every,start+tend+1))+".root"
             print "Creating file "+outname
             outroot = TFile(outname,"recreate")
             outtree = TTree("mcmc","mcmc")
@@ -342,6 +342,12 @@ def run(arguments):
             finite_lh = _l != 0
         if _l<0:
             move +=1
+            if iter_ix == start+tend:
+                print "Made all "+str(tend)+" iterations, moving "+outname+" to storage"
+                outtree.BuildIndex("chain_index","iteration_index")
+                outtree.Write()
+                outroot.Close()
+                os.system(" ".join(["mv",outname,outdir]))
             continue #point was not accepted
         lastaccepted["likelihood"]=_l
         lastaccepted["iteration_index"] = iter_ix
@@ -350,6 +356,7 @@ def run(arguments):
         #write point to root, start loop
         lastaccepted = prepare_fill(lastaccepted,outtree)#add the rest of the point info, fill the tree branches
         outtree.Fill()
+        print iter_ix,start+tend
         if iter_ix == start+tend:
             print "Made all "+str(tend)+" iterations, moving "+outname+" to storage"
             outtree.BuildIndex("chain_index","iteration_index")
