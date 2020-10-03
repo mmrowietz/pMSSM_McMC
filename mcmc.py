@@ -22,11 +22,12 @@ parameter_ranges["tb"] = (2,60)
 
 width_coefficient = 0.1 #the width coefficient of the gaussian for the mcmc step. This coefficient is multiplied by the parameter range to give the width of the gaussian.
 
-homedir = "/nfs/dust/cms/user/mrowietm/python_scan/"
+homedir = "/nfs/dust/cms/user/mrowietm/python_scan/pMSSM_McMC/"
 packagedir = homedir+"packages/"
 spnexe = packagedir+"SPheno-4.0.4/bin/SPheno"
 fhexe = packagedir+"FeynHiggs-2.16.1/bin/FeynHiggs"
 devnull = '>& /dev/null'
+#devnull = ""
 
 #containers for the tree branches. Numpy arrays are used as an interface between python types and the root branches
 tree_branches = {}
@@ -34,7 +35,7 @@ tree_branches["likelihood"]= np.zeros(1,dtype = float)
 tree_branches["iteration_index"] = np.zeros(1,dtype = int)
 tree_branches["accepted_index"] = np.zeros(1,dtype = int)
 tree_branches["chain_index"] = np.zeros(1,dtype = int)
-for obs in utils.likelihood_contributions:
+for obs in likelihood.likelihood_contributions:
     tree_branches[obs] = np.zeros(1,dtype=float)
 for param in parameter_ranges.keys():
     tree_branches[param] = np.zeros(1,dtype=float)
