@@ -17,19 +17,19 @@ The public tools in the package directory need to be compiled.
 ### how to run ###
 run mcmc.py (python 2.7) with the following options
 
-* `-m,[mode]`,(choices=["new","resume"]):  
+* `-m, --mode ["new","resume"]`:  
    new: starts a new chain from a random point in the pMSSM, sampling from a flat prior in the 19 pMSSM dimensions.  
     resume: resumes a previously created chain. Specify the root file containing the previous chain. The chain is continued from the point in the input root file that has the highest iteration index. The input file is specified with the `-i, [input]` argument.
 
-`-i, [input]`,If runmode resume, specify input root file (default = None)
+`-i, --input [input]`,If runmode resume, specify input root file (default = None)
 
-`-o, [output]`,Specify an output directory (required)
+`-o, --output [output]`,Specify an output directory (required)
 
-`-n, [npoints`, How many points to run the MCMC for (default=1000)
+`-n, --npoints [npoints]`, How many points to run the MCMC for (default=1000)
 
-`-c, [chain_index]`, chain index for the chain. Points are later identified by the chain_index and the iteration index (default = 1)
+`-c, --chain_index [index]`, chain index for the chain. Points are later identified by the chain_index and the iteration index (default = 1)
 
-`-mi, [move_interval]` , How many points to generate before starting a new root file and moving the already created points to the output directory (default = 300)
+`-mi, --move_interval [interval]` , How many points to generate before starting a new root file and moving the already created points to the output directory (default = 300)
 
 
 
