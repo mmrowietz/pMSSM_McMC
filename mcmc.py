@@ -26,6 +26,7 @@ homedir = "/nfs/dust/cms/user/mrowietm/python_scan/pMSSM_McMC/"
 packagedir = homedir+"packages/"
 spnexe = packagedir+"SPheno-4.0.4/bin/SPheno"
 fhexe = packagedir+"FeynHiggs-2.16.1/bin/FeynHiggs"
+
 devnull = '>& /dev/null'
 #devnull = ""
 
@@ -40,7 +41,7 @@ for obs in likelihood.likelihood_contributions:
 for param in parameter_ranges.keys():
     tree_branches[param] = np.zeros(1,dtype=float)
 
-#sign permutations
+#sign permutations for the pMSSM electroweak sector
 def get_sign(signchoice):
     sign_permutation = (0,0,0)#sign_permutation = (sign(mu),sign(M1),sign(M2))
     if signchoice % 8 ==0:
@@ -67,7 +68,7 @@ def generate_point(input_point = {},signchoice = 0):
     output_point = {}
     if from_scratch:
         for parameter,parameterrange in parameter_ranges.items():
-            if parameter in signs.keys():
+            if parameter in signs.keys():#handle signed parameters
                 parametervalue = signs[parameter]*abs(random.uniform(parameterrange[0],parameterrange[1]))
             else:
                 parametervalue = random.uniform(parameterrange[0],parameterrange[1])                    

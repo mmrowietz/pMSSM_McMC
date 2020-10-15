@@ -17,16 +17,21 @@ def get_likelihood(observables):
     product_likelihood = 1
 
     for obs,obsval in observables.items():
+        if "special_case" in obsval.keys():#in case you need a non-standard handling of the likelihood, add the flag "special_case" as one of the keys in the likelihood_contributions dictionary
+            continue
         if obs not in likelihood_contributions:
             print(str(obs)+" has no experimental result in database")
             exit()
         if "uncertainty" in obsval.keys(): #higgs-type case: center gauss on theory value with width= theory uncertainty, evaluate at experimental value
             product_likelihood *= utils.gauss(likelihood_contributions[obs]["value"],obsval["value"],0.5*obsval["uncertainty"])
         else:
-            if type(likelihood_contributions[obs]["uncertainty"]) == float:
+            if type(likelihood_contributions[obs]["uncertainty"]) == float:#usual case, symmetric error
                 product_likelihood *= utils.gauss(obsval["value"],likelihood_contributions[obs]["value"],likelihood_contributions[obs]["uncertainty"])
-            elif type(likelihood_contributions[obs]["uncertainty"]) == list:
-                product_likelihood *= utils.gauss_pm(obsval["value"],likelihood_contributions[obs]["value"],sigma_m = likelihood_contributions[obs]["uncertainty"][0],sigma_p = likelihood_contributions[obs]["uncertainty"][1])                
+            elif type(likelihood_contributions[obs]["uncertainty"]) == list:#non-symmetric error, use two-sided gaussian
+                product_likelihood *= utils.gauss_pm(obsval["value"],likelihood_contributions[obs]["value"],sigma_m = likelihood_contributions[obs]["uncertainty"][0],sigma_p = likelihood_contributions[obs]["uncertainty"][1])
+
+
+    #handle special cases
     return product_likelihood
 def make_decision(candidate_point,prev_l):
     new_point = {}

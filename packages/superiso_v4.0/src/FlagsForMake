@@ -1,0 +1,12 @@
+CC = gcc
+CFLAGS = -O3 -pipe -fomit-frame-pointer
+CFLAGS_MP =
+MAKE = make
+AR = ar
+ARFLAGS = rcsU
+SOFTSUSY = /afs/desy.de/user/m/mrowietm/softsusy/softpoint.x
+ISAJET = /afs/desy.de/user/m/mrowietm/isajet/isasugra.x
+SPHENO = /afs/desy.de/user/m/mrowietm/spheno/bin/SPheno
+SUSPECT = /afs/desy.de/user/m/mrowietm/suspect/suspect2
+THDMC = /afs/desy.de/user/m/mrowietm/2HDMC
+NMSSMTOOLS = /afs/desy.de/user/m/mrowietm/nmssmtools/main
