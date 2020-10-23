@@ -26,23 +26,29 @@ homedir = "/nfs/dust/cms/user/mrowietm/python_scan/pMSSM_McMC/"
 packagedir = homedir+"packages/"
 spnexe = packagedir+"SPheno-4.0.4/bin/SPheno"
 fhexe = packagedir+"FeynHiggs-2.16.1/bin/FeynHiggs"
+sisoexe = packagedir+"superiso_v4.0/slha.x"
+sisochi2exe = packagedir+"superiso_v4.0/slha_chi2.x"
 
 devnull = '>& /dev/null'
 #devnull = ""
 
 #containers for the tree branches. Numpy arrays are used as an interface between python types and the root branches
 tree_branches = {}
-tree_branches["likelihood"]= np.zeros(1,dtype = float)
-tree_branches["iteration_index"] = np.zeros(1,dtype = int)
-tree_branches["accepted_index"] = np.zeros(1,dtype = int)
-tree_branches["chain_index"] = np.zeros(1,dtype = int)
-tree_branches["mtop"] = np.zeros(1,dtype = float)
-tree_branches["mbottom"] = np.zeros(1,dtype = float)
-tree_branches["alpha_s"] = np.zeros(1,dtype = float)
-tree_branches["mhiggs"] = np.zeros(1,dtype = float)
-
+tree_branches["slha_file"]={"container":TString(),"dtype":"TString"}
+tree_branches["likelihood"]= {"container":np.zeros(1,dtype = float),"dtype":"D"}
+tree_branches["iteration_index"] = {"container":np.zeros(1,dtype = int),"dtype":"I"}
+tree_branches["accepted_index"] = {"container":np.zeros(1,dtype = int),"dtype":"I"}
+tree_branches["chain_index"] = {"container":np.zeros(1,dtype = int),"dtype":"I"}
+tree_branches["mtop"] = {"container":np.zeros(1,dtype = float),"dtype":"D"}
+tree_branches["mbottom"] = {"container":np.zeros(1,dtype = float),"dtype":"D"}
+tree_branches["alpha_s"] = {"container":np.zeros(1,dtype = float),"dtype":"D"}
+tree_branches["mhiggs"] = {"container":np.zeros(1,dtype = float),"dtype":"D"}
 for param in parameter_ranges.keys():
-    tree_branches[param] = np.zeros(1,dtype=float)
+    tree_branches[param] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
+tree_branches["superiso_chi2_stdout"]={"container":TString(),"dtype":"TString"}
+tree_branches["superiso_stdout"]={"container":TString(),"dtype":"TString"}
+tree_branches["chi2"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
+tree_branches["chi2_ndf"]={"container":np.zeros(1,dtype=float),"dtype":"I"}
 
 #sign permutations for the pMSSM electroweak sector
 def get_sign(signchoice):
@@ -178,6 +184,9 @@ def run_feynhiggs():
     os.system("rm "+fhin)# clean up
     return True
 def get_observables(slhapath):
+    """
+    get the observables from the slha file
+    """
     returndict = {}
     with open(slhapath,"r") as slhain:
         slhacont = slhain.read()
@@ -201,22 +210,42 @@ def get_observables(slhapath):
         returndict["alpha_s"] = {"value":float(" ".join(sminputs[2].split()).split()[1])}
         returndict["mbottom"] = {"value":float(" ".join(sminputs[4].split()).split()[1])}
     return returndict
+
+def run_superiso(slhapath):
+    siso_call = subprocess.Popen([sisoexe,str(slhapath)], stdout=subprocess.PIPE)
+    siso_out = siso_call.stdout.read()
+    returndict = {"superiso_stdout":{"value":siso_out}}
+    print siso_out
+    return siso_out
+def run_superiso_chi2(slhapath):
+    siso_chi2_call = subprocess.Popen([sisochi2exe,str(slhapath)], stdout=subprocess.PIPE)
+    siso_chi2_out = siso_call.stdout.read()
+    returndict = {"superiso_chi2_stdout":{"value":siso_chi2_out}}
+    chi2 = siso_chi2_out[siso_chi2_out.find("chi2"):]
+    chi2 = float(chi2[chi2.find("=")+1:chi2.find("\n")].strip())
+    returndict["chi2"]={"value":chi2}
+    ndf = siso_chi2_out[siso_chi2_out.find("n_obs"):]
+    ndf = int(ndf[ndf.find("=")+1:ndf.find("\n")].strip())
+    returndict["chi2_ndf"]={"value":ndf}
+    print siso_chi2_out
+    return returndict
+
 def setup_tree(outtree):
-    outtree.Branch("slha_file",TString())
-    outtree.Branch("iteration_index",tree_branches["iteration_index"],"iteration_index/I")
-    outtree.Branch("accepted_index",tree_branches["accepted_index"],"accepted_index/I")
-    outtree.Branch("chain_index",tree_branches["chain_index"],"chain_index/I")
-    outtree.Branch("likelihood",tree_branches["likelihood"],"likelihood/D")
-    for obs in likelihood.likelihood_contributions.keys():
-        outtree.Branch(obs,tree_branches[obs],obs+"/D")
-    for param in parameter_ranges.keys():
-        outtree.Branch(param,tree_branches[param],param+"/D")
+    for branch in tree_branches.keys():
+        if tree_branches[branch]["dtype"] == "TString":#the container in this case is just a placeholder, since a new TString is created for each new tree entry. I am not sure if this can be done differently
+            outtree.Branch(branch,tree_branches[branch]["container"])
+        else:
+            outtree.Branch(branch,tree_branches[branch]["container"],branch+"/"+tree_branches[branch]["dtype"])
         
 
 def prepare_fill(point,outtree):
     point_info = {}
     for key,val in point.items():
-        point_info[key] = val
+        if type(val) != str:
+            point_info[key] = val
+        else:#strings are handled differently
+            tval = TString(val)
+            outtree.SetBranchAddress(key,tval)
 
 
     with open("SPheno.spc","r") as spnin:
@@ -256,8 +285,9 @@ def prepare_fill(point,outtree):
         point_info["mhiggs"] = float(" ".join(masses[4].split()).split()[1])
         slha_file = TString(slhafile)
         outtree.SetBranchAddress("slha_file",slha_file)
-    for key in tree_branches.keys():
-        tree_branches[key][0]=point_info[key]
+    for key in tree_branches.keys():#exclude strings
+        if tree_branches[key]["dtype"]="TString":continue
+        tree_branches[key]["container"][0]=point_info[key]
     return point_info
 def run(arguments):
     mode = arguments.mode
@@ -278,7 +308,6 @@ def run(arguments):
         outtree = TTree("mcmc","mcmc")
         setup_tree(outtree)
         tree_branches["chain_index"][0] = chainix
-
         finite_lh = False
         signchoice = random.randint(0,7)
         while not finite_lh:
@@ -293,12 +322,22 @@ def run(arguments):
             if not run_feynhiggs():#run feynhiggs, replace higgs sector
                 continue
             observables = get_observables(slhapath = "SPheno.spc") #get observables for the likelihood
+            siso_obs = run_superiso("SPheno.spc")
+            for obs in siso_obs:
+                observables[obs] = siso_obs[obs]
+            siso_chi2_obs = run_superiso_chi2("SPheno.spc")
+            for obs in siso_chi2_obs:
+                observables[obs] = siso_chi2_obs[obs]
             _l = likelihood.get_likelihood(observables)#get likelihood
             finite_lh = _l != 0
         lastaccepted["likelihood"]=_l
         lastaccepted["iteration_index"] = 1
         lastaccepted["accepted_index"] = 1
         lastaccepted["chain_index"] = chainix
+        lastaccepted["superiso_chi2_stdout"] = observables["superiso_chi2_stdout"]["value"]
+        lastaccepted["superiso_stdout"] =observables["superiso_stdout"]["value"]
+        lastaccepted["chi2"] =observables["chi2"]["value"]
+        lastaccepted["chi2_ndf"]=observables["chi2_ndf"]["value"]
         #write point to root, start loop
         for obs in observables.keys():
             lastaccepted[obs] = observables[obs]["value"]
@@ -342,6 +381,12 @@ def run(arguments):
             if not run_feynhiggs():#run feynhiggs, replace higgs sector
                 continue
             observables = get_observables(slhapath = "SPheno.spc") #get observables for the likelihood
+            siso_obs = run_superiso("SPheno.spc")
+            for obs in siso_obs:
+                observables[obs] = siso_obs[obs]
+            siso_chi2_obs = run_superiso_chi2("SPheno.spc")
+            for obs in siso_chi2_obs:
+                observables[obs] = siso_chi2_obs[obs]
             _l = likelihood.make_decision(observables,lastaccepted["likelihood"])#get likelihood
             finite_lh = _l != 0
         if _l<0:
@@ -357,6 +402,11 @@ def run(arguments):
         lastaccepted["iteration_index"] = iter_ix
         lastaccepted["accepted_index"] =lastaccepted["accepted_index"]+1
         lastaccepted["chain_index"] = chainix
+        lastaccepted["superiso_chi2_stdout"] = observables["superiso_chi2_stdout"]["value"]
+        lastaccepted["superiso_stdout"] =observables["superiso_stdout"]["value"]
+        lastaccepted["chi2"] =observables["chi2"]["value"]
+        lastaccepted["chi2_ndf"]=observables["chi2_ndf"]["value"]
+
         #write point to root, start loop
         lastaccepted = prepare_fill(lastaccepted,outtree)#add the rest of the point info, fill the tree branches
         outtree.Fill()

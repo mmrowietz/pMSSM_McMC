@@ -8,6 +8,7 @@ likelihood_contributions["mtop"] = {"value":173.1,"uncertainty":0.9}
 likelihood_contributions["mbottom"] = {"value":4.18,"uncertainty":[0.03,0.04]}
 likelihood_contributions["alpha_s"] = {"value":0.1181,"uncertainty":0.0011}
 likelihood_contributions["mhiggs"] = {"value":125.26}
+
 #add superiso variables here. Maken the keys root compatible, then make an interface for superiso
 def get_likelihood(observables):
     """
@@ -30,7 +31,7 @@ def get_likelihood(observables):
             elif type(likelihood_contributions[obs]["uncertainty"]) == list:#non-symmetric error, use two-sided gaussian
                 product_likelihood *= utils.gauss_pm(obsval["value"],likelihood_contributions[obs]["value"],sigma_m = likelihood_contributions[obs]["uncertainty"][0],sigma_p = likelihood_contributions[obs]["uncertainty"][1])
 
-
+                
     #handle special cases
     return product_likelihood
 def make_decision(candidate_point,prev_l):
