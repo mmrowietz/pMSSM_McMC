@@ -8,7 +8,7 @@ likelihood_contributions["mtop"] = {"value":173.1,"uncertainty":0.9}
 likelihood_contributions["mbottom"] = {"value":4.18,"uncertainty":[0.03,0.04]}
 likelihood_contributions["alpha_s"] = {"value":0.1181,"uncertainty":0.0011}
 likelihood_contributions["mhiggs"] = {"value":125.26}
-
+#add superiso variables here. Maken the keys root compatible, then make an interface for superiso
 def get_likelihood(observables):
     """
     get the likelihood for a point.

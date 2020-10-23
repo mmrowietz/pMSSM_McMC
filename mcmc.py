@@ -36,8 +36,11 @@ tree_branches["likelihood"]= np.zeros(1,dtype = float)
 tree_branches["iteration_index"] = np.zeros(1,dtype = int)
 tree_branches["accepted_index"] = np.zeros(1,dtype = int)
 tree_branches["chain_index"] = np.zeros(1,dtype = int)
-for obs in likelihood.likelihood_contributions:
-    tree_branches[obs] = np.zeros(1,dtype=float)
+tree_branches["mtop"] = np.zeros(1,dtype = float)
+tree_branches["mbottom"] = np.zeros(1,dtype = float)
+tree_branches["alpha_s"] = np.zeros(1,dtype = float)
+tree_branches["mhiggs"] = np.zeros(1,dtype = float)
+
 for param in parameter_ranges.keys():
     tree_branches[param] = np.zeros(1,dtype=float)
 
