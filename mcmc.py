@@ -214,19 +214,69 @@ def get_observables(slhapath):
 def run_superiso(slhapath):
     siso_call = subprocess.Popen([sisoexe,str(slhapath)], stdout=subprocess.PIPE)
     siso_out = siso_call.stdout.read()
-    returndict = {"superiso_stdout":{"value":siso_out}}
+    returndict = {"superiso_stdout":{"value":siso_out,"special_case"}}
+    #get the individual observables from stdout
+    BR_Bplus_to_Kstar_gamma = siso_out[siso_out.find("BR(B+->K* gamma)")+len("BR(B+->K* gamma)"):]
+    BR_Bplus_to_Kstar_gamma = float(BR_Bplus_to_Kstar_gamma[:BR_Bplus_to_Kstar_gamma.find("\n")].strip())
+    returndict["BR_Bplus_to_Kstar_gamma"] = {"value":BR_Bplus_to_Kstar_gamma}
+    
+    BR_B_to_Xs_tau_tau_high = siso_out[siso_out.find("BR(B->Xs tau tau)_high")+len("BR(B->Xs tau tau)_high"):]
+    BR_B_to_Xs_tau_tau_high = float(BR_B_to_Xs_tau_tau_high[:BR_B_to_Xs_tau_tau_high.find("\n")].strip())
+    returndict["BR_B_to_Xs_tau_tau_high"] = {"value":BR_B_to_Xs_tau_tau_high}
+
+    BR_B_to_tau_nu = siso_out[siso_out.find("BR(B->tau nu)")+len("BR(B->tau nu)"):]
+    BR_B_to_tau_nu = float(BR_B_to_tau_nu[:BR_B_to_tau_nu.find("\n")].strip())
+    returndict["BR_B_to_tau_nu"] = {"value":BR_B_to_tau_nu}
+    
+    R_B_to_tau_nu = siso_out[siso_out.find("R(B->tau nu)")+len("R(B->tau nu)"):]#this is the ratio of the above w.r.t. the SM value, so only use one of them in the likelihood!
+    R_B_to_tau_nu = float(R_B_to_tau_nu[:R_B_to_tau_nu.find("\n")].strip())
+    returndict["R_B_to_tau_nu"] = {"value":R_B_to_tau_nu}
+
+    BR_B_to_D_tau_nu = siso_out[siso_out.find("BR(B->D tau nu)")+len("BR(B->D tau nu)"):]
+    BR_B_to_D_tau_nu = float(BR_B_to_D_tau_nu[:BR_B_to_D_tau_nu.find("\n")].strip())
+    returndict["BR_B_to_D_tau_nu"] = {"value":BR_B_to_D_tau_nu}
+
+    BR_B_to_D_tau_nu_div_BR_B_to_D_e_nu = siso_out[siso_out.find("BR(B->D tau nu)/BR(B->D e nu)")+len("BR(B->D tau nu)/BR(B->D e nu)"):]#this observable is probably quite correlated with the above, might want to only use one of them for the likelihood
+    BR_B_to_D_tau_nu_div_BR_B_to_D_e_nu = float(BR_B_to_D_tau_nu_div_BR_B_to_D_e_nu[:BR_B_to_D_tau_nu_div_BR_B_to_D_e_nu.find("\n")].strip())
+    returndict["BR_B_to_D_tau_nu_div_BR_B_to_D_e_nu"] = {"value":BR_B_to_D_tau_nu_div_BR_B_to_D_e_nu}
+    
+    BR_Ds_to_tau_nu = siso_out[siso_out.find("BR(Ds->tau nu)")+len("BR(Ds->tau nu)"):]
+    BR_Ds_to_tau_nu = float(BR_Ds_to_tau_nu[:BR_Ds_to_tau_nu.find("\n")].strip())
+    returndict["BR_Ds_to_tau_nu"] = {"value":BR_Ds_to_tau_nu}
+
+    BR_Ds_to_mu_nu = siso_out[siso_out.find("BR(Ds->mu nu)")+len("BR(Ds->mu nu)"):]
+    BR_Ds_to_mu_nu = float(BR_Ds_to_mu_nu[:BR_Ds_to_mu_nu.find("\n")].strip())
+    returndict["BR_Ds_to_mu_nu"] = {"value":BR_Ds_to_mu_nu}
+
+    BR_D_to_mu_nu = siso_out[siso_out.find("BR(D->mu nu)")+len("BR(D->mu nu)"):]
+    BR_D_to_mu_nu = float(BR_D_to_mu_nu[:BR_D_to_mu_nu.find("\n")].strip())
+    returndict["BR_D_to_mu_nu"] = {"value":BR_D_to_mu_nu}
+
+    BR_K_to_mu_nu_div_BR_pi_to_mu_nu = siso_out[siso_out.find("BR(K->mu nu)/BR(pi->mu nu)")+len("BR(K->mu nu)/BR(pi->mu nu)"):]
+    BR_K_to_mu_nu_div_BR_pi_to_mu_nu = float(BR_K_to_mu_nu_div_BR_pi_to_mu_nu[:BR_K_to_mu_nu_div_BR_pi_to_mu_nu.find("\n")].strip())
+    returndict["BR_K_to_mu_nu_div_BR_pi_to_mu_nu"] = {"value":BR_K_to_mu_nu_div_BR_pi_to_mu_nu}
+
+    Rmu23_K_to_mu_nu = siso_out[siso_out.find("Rmu23(K->mu nu)")+len("Rmu23(K->mu nu)"):]
+    Rmu23_K_to_mu_nu = float(Rmu23_K_to_mu_nu[:Rmu23_K_to_mu_nu.find("\n")].strip())
+    returndict["Rmu23_K_to_mu_nu"] = {"value":Rmu23_K_to_mu_nu}
+
+    a_muon = siso_out[siso_out.find("a_muon")+len("a_muon"):]
+    a_muon = float(a_muon[:a_muon.find("\n")].strip())
+    returndict["a_muon"] = {"value":a_muon}
+    
     print siso_out
     return siso_out
 def run_superiso_chi2(slhapath):
     siso_chi2_call = subprocess.Popen([sisochi2exe,str(slhapath)], stdout=subprocess.PIPE)
     siso_chi2_out = siso_call.stdout.read()
-    returndict = {"superiso_chi2_stdout":{"value":siso_chi2_out}}
+    #special_case key in dictionary tells the likelihood function that this observable should not be handled in a standard way
+    returndict = {"superiso_chi2_stdout":{"value":siso_chi2_out},"special_case":""}
     chi2 = siso_chi2_out[siso_chi2_out.find("chi2"):]
     chi2 = float(chi2[chi2.find("=")+1:chi2.find("\n")].strip())
-    returndict["chi2"]={"value":chi2}
+    returndict["chi2"]={"value":chi2,"special_case":""}
     ndf = siso_chi2_out[siso_chi2_out.find("n_obs"):]
     ndf = int(ndf[ndf.find("=")+1:ndf.find("\n")].strip())
-    returndict["chi2_ndf"]={"value":ndf}
+    returndict["chi2_ndf"]={"value":ndf,"special_case":""}
     print siso_chi2_out
     return returndict
 
