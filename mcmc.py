@@ -31,8 +31,6 @@ sisoexe = packagedir+"superiso_v4.0/slha.x"
 #sisochi2exe = packagedir+"superiso_v4.0/slha_chi2.x" #use all of the non-controversial low-energy results in superiso chi2 calculation. takes approximately 20s/call
 sisochi2exe = packagedir+"superiso_v4.0/slha_chi2_reduced.x"#use only branching ratios in superiso chi2. takes approximately 8s/call
 
-devnull = '>& /dev/null'
-#devnull = ""
 
 #containers for the tree branches. Numpy arrays are used as an interface between python types and the root branches
 tree_branches = {}
@@ -103,12 +101,12 @@ def generate_point(input_point = {},signchoice = 0):
         output_point["alpha_s"] = random.gauss(input_point["alpha_s"],0.0011*width_coefficient)
     output_point["scale"] = sqrt(output_point["Mq3"]*output_point["Mu3"])
     return output_point
-def run_spheno(inpath):
+def run_spheno(inpath,devnull):
     cmd = " ".join([spnexe,inpath,devnull])
     os.system(cmd)
     error = open("Messages.out","r").read()
     return len(error) == 0
-def run_feynhiggs():
+def run_feynhiggs(devnull):
     """
     Replace the SPheno Higgs sector with the FeynHiggs one
     fhin = FeynHiggs output file
@@ -213,9 +211,11 @@ def get_observables(slhapath):
         returndict["mbottom"] = {"value":float(" ".join(sminputs[4].split()).split()[1])}
     return returndict
 
-def run_superiso(slhapath):
+def run_superiso(slhapath,debug):
     siso_call = subprocess.Popen([sisoexe,str(slhapath)], stdout=subprocess.PIPE)
     siso_out = siso_call.stdout.read()
+    if debug:
+        print siso_out
     if len(siso_out)<10:
         print "something went wrong with siso call!"
         print siso_out
@@ -276,9 +276,11 @@ def run_superiso(slhapath):
         return -1
 #    print siso_out
     return returndict
-def run_superiso_chi2(slhapath):
+def run_superiso_chi2(slhapath,debug):
     siso_chi2_call = subprocess.Popen([sisochi2exe,str(slhapath)], stdout=subprocess.PIPE)
     siso_chi2_out = siso_chi2_call.stdout.read()
+    if debug:
+        print siso_chi2_out
     if len(siso_chi2_out)<10:
         print "something went wrong with siso chi2 call!"
         print siso_chi2_out
@@ -293,8 +295,10 @@ def run_superiso_chi2(slhapath):
 #    print siso_chi2_out
     return returndict
 
-def setup_tree(outtree):
+def setup_tree(outtree,debug):
     for branch in tree_branches.keys():
+        if debug:
+            print "adding ",branch, " to tree"
         if tree_branches[branch]["dtype"] == "TString":#the container in this case is just a placeholder, since a new TString is created for each new tree entry. I am not sure if this can be done differently
             outtree.Branch(branch,tree_branches[branch]["container"])
         else:
@@ -362,6 +366,12 @@ def run(arguments):
     move_every = arguments.move_interval
     outdir = arguments.output
     inpath = arguments.input
+    debug = arguments.debug
+    if debug:
+        devnull = ""
+    else:
+        devnull = '>& /dev/null'
+
     lastaccepted = {}
     #select mode, use argparse for this
     move = 1
@@ -371,7 +381,7 @@ def run(arguments):
         outname = "pMSSM_MCMC_"+str(chainix)+"_"+str(start)+"to"+str(min(start+move_every,start+tend))+".root"
         outroot = TFile(outname,"recreate")
         outtree = TTree("mcmc","mcmc")
-        setup_tree(outtree)
+        setup_tree(outtree,debug)
         tree_branches["chain_index"][0] = chainix
         finite_lh = False
         signchoice = random.randint(0,7)
@@ -382,17 +392,17 @@ def run(arguments):
                 utils.clean()
                 candidate = generate_point(signchoice = signchoice)#generate a point from flat prior
                 spnin = utils.write_spheno_input(candidate)#write the input for spheno
-                spnerr = run_spheno(spnin) #run spheno, check if viable point
+                spnerr = run_spheno(spnin,devnull) #run spheno, check if viable point
 
-            if not run_feynhiggs():#run feynhiggs, replace higgs sector
+            if not run_feynhiggs(devnull):#run feynhiggs, replace higgs sector
                 continue
             observables = get_observables(slhapath = "SPheno.spc") #get observables for the likelihood
-            siso_obs = run_superiso("SPheno.spc")
+            siso_obs = run_superiso("SPheno.spc",debug)
             if siso_obs == -1:
                 continue
             for obs in siso_obs:
                 observables[obs] = siso_obs[obs]
-            siso_chi2_obs = run_superiso_chi2("SPheno.spc")
+            siso_chi2_obs = run_superiso_chi2("SPheno.spc",debug)
             for obs in siso_chi2_obs:
                 observables[obs] = siso_chi2_obs[obs]
             _l = likelihood.get_likelihood(observables)#get likelihood
@@ -419,7 +429,7 @@ def run(arguments):
         print "Creating file "+outname
         outroot = TFile(outname,"recreate")
         outtree = TTree("mcmc","mcmc")
-        setup_tree(outtree)
+        setup_tree(outtree,debug)
         tree_branches["chain_index"][0] = chainix
 
     #run
@@ -434,7 +444,7 @@ def run(arguments):
             print "Creating file "+outname
             outroot = TFile(outname,"recreate")
             outtree = TTree("mcmc","mcmc")
-            setup_tree(outtree)
+            setup_tree(outtree,debug)
             move = -1
         finite_lh = False
         while not finite_lh:
@@ -444,16 +454,16 @@ def run(arguments):
                 utils.clean()
                 candidate = generate_point(lastaccepted)#generate a point from the last point
                 spnin = utils.write_spheno_input(candidate)#write the input for spheno
-                spnerr = run_spheno(spnin) #run spheno, check if viable point
-            if not run_feynhiggs():#run feynhiggs, replace higgs sector
+                spnerr = run_spheno(spnin,devnull) #run spheno, check if viable point
+            if not run_feynhiggs(devnull):#run feynhiggs, replace higgs sector
                 continue
             observables = get_observables(slhapath = "SPheno.spc") #get observables for the likelihood
-            siso_obs = run_superiso("SPheno.spc")
+            siso_obs = run_superiso("SPheno.spc",debug)
             if siso_obs == -1:
                 continue
             for obs in siso_obs:
                 observables[obs] = siso_obs[obs]
-            siso_chi2_obs = run_superiso_chi2("SPheno.spc")
+            siso_chi2_obs = run_superiso_chi2("SPheno.spc",debug)
             for obs in siso_chi2_obs:
                 observables[obs] = siso_chi2_obs[obs]
             _l = likelihood.make_decision(observables,lastaccepted["likelihood"])#get likelihood
@@ -495,6 +505,7 @@ if __name__ == "__main__":
     parser.add_argument("-n","--npoints",help = "How many points to run the MCMC for",default=1000,type=int)
     parser.add_argument("-c","--chain_index",help = "chain index for the chain",type = int,default = 1)
     parser.add_argument("-mi","--move_interval",default = 300,help = "How many points to generate before starting a new root file",type=int)
+    parser.add_argument("-d","--debug",choices=[True,False],default = False,help = "Enable debug messages",type=bool)
     args=parser.parse_args()
     if args.mode =="resume":
         if args.input == None:
