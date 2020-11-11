@@ -5,7 +5,6 @@ import argparse
 import os
 from ROOT import *
 import numpy as np
-from tqdm import tqdm
 import utils
 import likelihood
 import subprocess
@@ -394,7 +393,7 @@ def run(arguments):
                 spnin = utils.write_spheno_input(candidate)#write the input for spheno
                 spnerr = run_spheno(spnin,devnull) #run spheno, check if viable point
 
-            if not run_feynhiggs(devnull):#run feynhiggs, replace higgs sector
+            if not run_feynhiggs('>& /dev/null'):#run feynhiggs, replace higgs sector
                 continue
             observables = get_observables(slhapath = "SPheno.spc") #get observables for the likelihood
             siso_obs = run_superiso("SPheno.spc",debug)
@@ -433,7 +432,7 @@ def run(arguments):
         tree_branches["chain_index"][0] = chainix
 
     #run
-    for iter_ix in tqdm(range(start,start+tend+1)):
+    for iter_ix in range(start,start+tend+1):
         if move == move_every-1 and iter_ix < start+tend-1:
             outtree.BuildIndex("chain_index","iteration_index")
             outtree.Write()
@@ -455,7 +454,7 @@ def run(arguments):
                 candidate = generate_point(lastaccepted)#generate a point from the last point
                 spnin = utils.write_spheno_input(candidate)#write the input for spheno
                 spnerr = run_spheno(spnin,devnull) #run spheno, check if viable point
-            if not run_feynhiggs(devnull):#run feynhiggs, replace higgs sector
+            if not run_feynhiggs('>& /dev/null'):#run feynhiggs, replace higgs sector
                 continue
             observables = get_observables(slhapath = "SPheno.spc") #get observables for the likelihood
             siso_obs = run_superiso("SPheno.spc",debug)
