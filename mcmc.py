@@ -210,11 +210,9 @@ def get_observables(slhapath):
         returndict["mbottom"] = {"value":float(" ".join(sminputs[4].split()).split()[1])}
     return returndict
 
-def run_superiso(slhapath,debug):
+def run_superiso(slhapath):
     siso_call = subprocess.Popen([sisoexe,str(slhapath)], stdout=subprocess.PIPE)
     siso_out = siso_call.stdout.read()
-    if debug:
-        print siso_out
     if len(siso_out)<10:
         print "something went wrong with siso call!"
         print siso_out
@@ -275,11 +273,9 @@ def run_superiso(slhapath,debug):
         return -1
 #    print siso_out
     return returndict
-def run_superiso_chi2(slhapath,debug):
+def run_superiso_chi2(slhapath):
     siso_chi2_call = subprocess.Popen([sisochi2exe,str(slhapath)], stdout=subprocess.PIPE)
     siso_chi2_out = siso_chi2_call.stdout.read()
-    if debug:
-        print siso_chi2_out
     if len(siso_chi2_out)<10:
         print "something went wrong with siso chi2 call!"
         print siso_chi2_out
@@ -294,10 +290,8 @@ def run_superiso_chi2(slhapath,debug):
 #    print siso_chi2_out
     return returndict
 
-def setup_tree(outtree,debug):
+def setup_tree(outtree):
     for branch in tree_branches.keys():
-        if debug:
-            print "adding ",branch, " to tree"
         if tree_branches[branch]["dtype"] == "TString":#the container in this case is just a placeholder, since a new TString is created for each new tree entry. I am not sure if this can be done differently
             outtree.Branch(branch,tree_branches[branch]["container"])
         else:
@@ -365,11 +359,7 @@ def run(arguments):
     move_every = arguments.save_interval
     outdir = arguments.output
     inpath = arguments.input
-    debug = arguments.debug
-    if debug:
-        devnull = ""
-    else:
-        devnull = '>& /dev/null'
+    devnull = '>& /dev/null'
 
     lastaccepted = {}
     #select mode, use argparse for this
@@ -380,7 +370,7 @@ def run(arguments):
         outname = "pMSSM_MCMC_"+str(chainix)+"_"+str(start)+"to"+str(min(start+move_every,start+tend))+".root"
         outroot = TFile(outname,"recreate")
         outtree = TTree("mcmc","mcmc")
-        setup_tree(outtree,debug)
+        setup_tree(outtree)
         tree_branches["chain_index"][0] = chainix
         finite_lh = False
         signchoice = random.randint(0,7)
@@ -396,12 +386,12 @@ def run(arguments):
             if not run_feynhiggs('>& /dev/null'):#run feynhiggs, replace higgs sector
                 continue
             observables = get_observables(slhapath = "SPheno.spc") #get observables for the likelihood
-            siso_obs = run_superiso("SPheno.spc",debug)
+            siso_obs = run_superiso("SPheno.spc")
             if siso_obs == -1:
                 continue
             for obs in siso_obs:
                 observables[obs] = siso_obs[obs]
-            siso_chi2_obs = run_superiso_chi2("SPheno.spc",debug)
+            siso_chi2_obs = run_superiso_chi2("SPheno.spc")
             for obs in siso_chi2_obs:
                 observables[obs] = siso_chi2_obs[obs]
             _l = likelihood.get_likelihood(observables)#get likelihood
@@ -428,7 +418,7 @@ def run(arguments):
         print "Creating file "+outname
         outroot = TFile(outname,"recreate")
         outtree = TTree("mcmc","mcmc")
-        setup_tree(outtree,debug)
+        setup_tree(outtree)
         tree_branches["chain_index"][0] = chainix
 
     #run
@@ -443,7 +433,7 @@ def run(arguments):
             print "Creating file "+outname
             outroot = TFile(outname,"recreate")
             outtree = TTree("mcmc","mcmc")
-            setup_tree(outtree,debug)
+            setup_tree(outtree)
             move = -1
         finite_lh = False
         while not finite_lh:
@@ -457,12 +447,12 @@ def run(arguments):
             if not run_feynhiggs('>& /dev/null'):#run feynhiggs, replace higgs sector
                 continue
             observables = get_observables(slhapath = "SPheno.spc") #get observables for the likelihood
-            siso_obs = run_superiso("SPheno.spc",debug)
+            siso_obs = run_superiso("SPheno.spc")
             if siso_obs == -1:
                 continue
             for obs in siso_obs:
                 observables[obs] = siso_obs[obs]
-            siso_chi2_obs = run_superiso_chi2("SPheno.spc",debug)
+            siso_chi2_obs = run_superiso_chi2("SPheno.spc")
             for obs in siso_chi2_obs:
                 observables[obs] = siso_chi2_obs[obs]
             _l = likelihood.make_decision(observables,lastaccepted["likelihood"])#get likelihood
@@ -504,7 +494,6 @@ if __name__ == "__main__":
     parser.add_argument("-n","--npoints",help = "How many points to run the MCMC for",default=1000,type=int)
     parser.add_argument("-c","--chain_index",help = "chain index for the chain",type = int,default = 1)
     parser.add_argument("-s","--save_interval",default = 300,help = "How many points to generate before starting a new root file",type=int)
-    parser.add_argument("-d","--debug",choices=[True,False],default = False,help = "Enable debug messages",type=bool)
     args=parser.parse_args()
     if not os.path.exists(args.output):
         print "Output directory "+args.output+" does not exist. Please specify an existing output directory"
