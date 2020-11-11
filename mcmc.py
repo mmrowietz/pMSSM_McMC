@@ -506,6 +506,9 @@ if __name__ == "__main__":
     parser.add_argument("-mi","--move_interval",default = 300,help = "How many points to generate before starting a new root file",type=int)
     parser.add_argument("-d","--debug",choices=[True,False],default = False,help = "Enable debug messages",type=bool)
     args=parser.parse_args()
+    if not os.path.exists(args.output):
+        print "Output directory "+args.output+" does not exist. Please specify an existing output directory"
+        exit()
     if args.mode =="resume":
         if args.input == None:
             parser.error("Need to specify an input file in order to resume")
