@@ -362,7 +362,7 @@ def run(arguments):
     chainix = arguments.chain_index
     tend = arguments.npoints
     start = 0
-    move_every = arguments.move_interval
+    move_every = arguments.save_interval
     outdir = arguments.output
     inpath = arguments.input
     debug = arguments.debug
@@ -503,7 +503,7 @@ if __name__ == "__main__":
     parser.add_argument("-o","--output",help="Specify an output directory",required=True)
     parser.add_argument("-n","--npoints",help = "How many points to run the MCMC for",default=1000,type=int)
     parser.add_argument("-c","--chain_index",help = "chain index for the chain",type = int,default = 1)
-    parser.add_argument("-mi","--move_interval",default = 300,help = "How many points to generate before starting a new root file",type=int)
+    parser.add_argument("-s","--save_interval",default = 300,help = "How many points to generate before starting a new root file",type=int)
     parser.add_argument("-d","--debug",choices=[True,False],default = False,help = "Enable debug messages",type=bool)
     args=parser.parse_args()
     if not os.path.exists(args.output):
