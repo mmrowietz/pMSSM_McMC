@@ -1,12 +1,17 @@
 from ROOT import *
 import random
 import argparse
-import numpy
+import numpy as np
 """
 Sample from the McMC according to the sampling function desired
 how it works:
 Iterate through every point in the scan. For each point, calculate a probability to pick the point. 
 """
+# parser
+parser = argparse.ArgumentParser()
+parser.add_argument("-i","--infile",help="specify the McMC tree from which to sample",required=True)
+parser.add_argument("-o","--outdir",help="specify the output directory",required=True)
+args = parser.parse_args()
 #define the base probability here
 p_base = 0.01
 
@@ -22,12 +27,13 @@ infile = TFile(args.infile)
 intree = infile.Get("mcmc")
 nEntries = intree.GetEntries()
 #output
-outfile = TFile(args.outfile,"recreate")
+inname = args.infile.split("/")[-1]
+outfile = TFile(args.outdir+inname.replace(".root","_subsample.root"),"recreate")#this name is preliminary
 outtree = intree.CloneTree(0)#clone the tree structure from the input tree.
 
 #new branches for output tree
 tree_branches = {}
-tree_branches["p_pick"] = {"container":np.zeros(0,dtype),"dtype":"D"}#track the pick probabilty for each picked points in order to reweight later
+tree_branches["p_pick"] = {"container":np.zeros(0,dtype=float),"dtype":"D"}#track the pick probabilty for each picked points in order to reweight later
 
 for branch in tree_branches.keys():
     if tree_branches[branch]["dtype"] == "TString":#the container in this case is just a placeholder, since a new TString is created for each new tree entry. I am not sure if this can be done differently
@@ -44,6 +50,9 @@ def apply_positive_modifiers():
     Apply sampling contributions that increase the sampling rate / pick probability
     """
     f_oversampling = 1
+    #example: increase pick probabilty if tan beta is between 20 and 30
+    if abs(intree.tb)>=20 and abs(intree.tb)<=30:
+        f_oversampling*=sampling_contributions["example"]
     return f_oversampling
 def apply_negative_modifiers(threshold,p_pick):
     """
@@ -53,9 +62,9 @@ def apply_negative_modifiers(threshold,p_pick):
 
     """
     f_undersampling = 1
-    if apply_example_2():
+    #example: decrease the sampling rate if the tan beta is between 15 and 16 GeV
+    if abs(intree.tb)>=15 and abs(intree.tb)<=16:
         f_undersampling*= sampling_contributions["example_2"]
-
     if threshold>p_pick*f_undersampling: #early skip decision possible
         return f_undersampling
 
@@ -64,7 +73,7 @@ def apply_negative_modifiers(threshold,p_pick):
     
 #main loop
 for iEntry in range(nEntries):
-    intree.Get(iEntry)
+    intree.GetEntry(iEntry)
     p_pick = p_base
     #sample a random float between 0 and 1. If the pick probability to pick a point exceeds the pick threshold, it is picked, otherwise it is skipped.
     pick_threshold = random.random()
