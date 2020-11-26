@@ -48,7 +48,6 @@ def get_likelihood(observables):
     product_likelihood*= (coeff*math.exp(-chi2/2))
     return product_likelihood
 def make_decision(candidate_point,prev_l):
-    new_point = {}
     L = get_likelihood(candidate_point)
     if L == 0:
         return 0
