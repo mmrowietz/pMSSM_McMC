@@ -1,6 +1,6 @@
 #this file should contain the mcmc decision function and the point generator
 import random
-from math import sqrt
+from math import sqrt,log
 import argparse
 import os
 from ROOT import *
@@ -19,6 +19,7 @@ for parameter in ["Ml1","Mr1","Ml3","Mr3","Mh3",]:
 for parameter in ["At","Ab","Al"]:
     parameter_ranges[parameter] = (-7000,7000)
 parameter_ranges["tb"] = (2,60)
+#choose in which parameters the space should be sampling logarithmically
 
 width_coefficient = 0.1 #the width coefficient of the gaussian for the mcmc step. This coefficient is multiplied by the parameter range to give the width of the gaussian.
 
@@ -69,7 +70,11 @@ def get_sign(signchoice):
     if signchoice % 8 ==7:
         return {"mu":-1,"M1":-1,"M2":1}
     
-def generate_point(input_point = {},signchoice = 0):
+def generate_point(input_point = {},signchoice = 0,variablesteps = False):
+    """
+    @param input_point: if using mode 2, give a dictionary keying the pMSSM parameter values of the previous point in the chain
+    @param signchoice: if using mode 1, give the sign permutation for the electroweak section
+    """
     # mode 1: generate point from flat prior
     from_scratch = len(input_point) == 0
     signs = get_sign(signchoice)
@@ -84,16 +89,20 @@ def generate_point(input_point = {},signchoice = 0):
         output_point["mtop"] = 173.1
         output_point["mbottom"] = 4.18
         output_point["alpha_s"] = 0.1181
-    else:
+    else: #mode 2: generate point from previous point
         for parameter,parameterrange in parameter_ranges.items():
             in_range = False
             if parameterrange[0]<0:
                 width = 0.5*width_coefficient*(parameterrange[1]-parameterrange[0])
             else:
                 width = width_coefficient*(parameterrange[1]-parameterrange[0])
+            if variablesteps:#example of variable step size
+                width = width/5
+                width = max(width,0.15*abs(input_point[parameter]))
             while not in_range:
                 parametervalue = random.gauss(input_point[parameter],width)
                 in_range = parametervalue > parameterrange[0] and parametervalue < parameterrange[1]
+
             output_point[parameter] = parametervalue
         output_point["mtop"]= random.gauss(input_point["mtop"],0.9*width_coefficient)
         output_point["mbottom"]= random.gauss(input_point["mbottom"],((0.18+0.04)/2)*width_coefficient)
@@ -441,7 +450,7 @@ def run(arguments):
             spnerr = False
             while not spnerr:#find a viable point
                 utils.clean()
-                candidate = generate_point(lastaccepted)#generate a point from the last point
+                candidate = generate_point(lastaccepted,variablesteps=True)#generate a point from the last point
                 spnin = utils.write_spheno_input(candidate)#write the input for spheno
                 spnerr = run_spheno(spnin,devnull) #run spheno, check if viable point
             if not run_feynhiggs('>& /dev/null'):#run feynhiggs, replace higgs sector
