@@ -56,7 +56,8 @@ tree_branches["superiso_chi2_stdout"]={"container":TString(),"dtype":"TString"}
 tree_branches["superiso_stdout"]={"container":TString(),"dtype":"TString"}
 tree_branches["chi2"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
 tree_branches["chi2_ndf"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
-
+tree_branches["omegah2"] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
+tree_branches["micromegas_stdout"]={"container":TString(),"dtype":"TString"}
 #sign permutations for the pMSSM electroweak sector
 def get_sign(signchoice):
     sign_permutation = (0,0,0)#sign_permutation = (sign(mu),sign(M1),sign(M2))
@@ -306,8 +307,27 @@ def run_superiso_chi2(slhapath):
 #    print siso_chi2_out
     return returndict
 def run_micromegas(slhapath):
-    micromegas_call = subprocess.Popen([mmgsexe,str(slhapath)], stdout=subprocess.PIPE)
+    print "calling micromegas"
+    micromegas_call = subprocess.Popen(mmgsexe+" "+str(slhapath), stdout=subprocess.PIPE,shell=True)
+    print "processing micromegas output"
     micromegas_out = micromegas_call.stdout.read()
+    print "I got the output! yay! This is it:"
+    print micromegas_out
+    #if any of these quantities are used to binarily reject candidate points, micromegas should be run first and terminate if, and as soon as, a rejection criterion is fulfilled
+    returndict = {"micromegas_stdout":{"value":micromegas_out,"special_case":""}}
+    ztoinv_excluded = micromegas_out.find("Excluded by Z->invisible") != -1
+    returndict["ztoinv_excluded"] = {"value":ztoinv_excluded,"special_case":""}
+    lep_excluded = micromegas_out.find("Excluded by LEP  by e+,e- -> DM q qbar. Cross section =")!=-1
+    returndict["lep_excluded"] = {"value":lep_excluded,"special_case":""}
+    masslim = micromegas_out.find("MassLimits OK")!=-1
+    returndict["masslim"] = {"value":masslim,"special_case":""}#if true, mass limits are not ok
+    omegah2 = micromegas_out[micromegas_out.find("Omega=")+len("Omega="):]
+    omegah2 = float(omegah2.split("\n")[0].strip())
+    returndict["omegah2"]={"value":omegah2,"special_case":""}
+    omegaxf = float(micromegas_out[micromegas_out.find("Xf=")+len("Xf="):micromegas_out.find("Omega=")].strip())
+    returndict["omegaxf"] = {"value":omegaxf,"special_case":""}
+    return returndict
+    
     
 def setup_tree(outtree):
     for branch in tree_branches.keys():
@@ -404,6 +424,10 @@ def run(arguments):
 
             if not run_feynhiggs('>& /dev/null'):#run feynhiggs, replace higgs sector
                 continue
+            os.system("cp SPheno.spc mmgsin.slha")
+            mmgs_obs = run_micromegas(slhapath="mmgsin.slha")#micromegas seems to consume the input file?!?!
+            os.system("mv mmgsin.slha SPheno.spc")
+            print "getting the stuff from the slha file"
             observables = get_observables(slhapath = "SPheno.spc") #get observables for the likelihood
             siso_obs = run_superiso("SPheno.spc")
             if siso_obs == -1:
@@ -413,6 +437,8 @@ def run(arguments):
             siso_chi2_obs = run_superiso_chi2("SPheno.spc")
             for obs in siso_chi2_obs:
                 observables[obs] = siso_chi2_obs[obs]
+            for obs in mmgs_obs:
+                observables[obs] = mmgs_obs[obs]
             _l = likelihood.get_likelihood(observables)#get likelihood
             finite_lh = _l != 0
         lastaccepted["likelihood"]=_l
@@ -423,6 +449,14 @@ def run(arguments):
         lastaccepted["superiso_stdout"] =observables["superiso_stdout"]["value"]
         lastaccepted["chi2"] =observables["chi2"]["value"]
         lastaccepted["chi2_ndf"]=observables["chi2_ndf"]["value"]
+        lastaccepted["micromegas_stdout"]=observables["micromegas_stdout"]["value"]
+        lastaccepted["ztoinv_excluded"] = observables["ztoinv_excluded"]["value"]
+        lastaccepted["lep_excluded"] = observables["lep_excluded"]["value"]
+        lastaccepted["masslim"] = observables["masslim"]["value"]
+        lastaccepted["omegah2"] = observables["omegah2"]["value"]
+        lastaccepted["omegaxf"] = observables["omegaxf"]["value"]
+        
+        
         #write point to root, start loop
         for obs in observables.keys():
             lastaccepted[obs] = observables[obs]["value"]
@@ -441,7 +475,9 @@ def run(arguments):
         tree_branches["chain_index"][0] = chainix
 
     #run
+    print "reached run loop"
     for iter_ix in range(start,start+tend+1):
+        print iter_ix
         if move == move_every-1 and iter_ix < start+tend-1:
             outtree.BuildIndex("chain_index","iteration_index")
             outtree.Write()
@@ -465,6 +501,10 @@ def run(arguments):
                 spnerr = run_spheno(spnin,devnull) #run spheno, check if viable point
             if not run_feynhiggs('>& /dev/null'):#run feynhiggs, replace higgs sector
                 continue
+            os.system("cp SPheno.spc mmgsin.slha")
+            mmgs_obs = run_micromegas(slhapath="mmgsin.slha")
+            os.system("mv mmgsin.slha SPheno.spc")
+
             observables = get_observables(slhapath = "SPheno.spc") #get observables for the likelihood
             siso_obs = run_superiso("SPheno.spc")
             if siso_obs == -1:
@@ -474,6 +514,9 @@ def run(arguments):
             siso_chi2_obs = run_superiso_chi2("SPheno.spc")
             for obs in siso_chi2_obs:
                 observables[obs] = siso_chi2_obs[obs]
+            for obs in mmgs_obs:
+                observables[obs] = mmgs_obs[obs]
+
             _l = likelihood.make_decision(observables,lastaccepted["likelihood"])#get likelihood
             finite_lh = _l != 0
         if _l<0:
@@ -493,7 +536,12 @@ def run(arguments):
         lastaccepted["superiso_stdout"] =observables["superiso_stdout"]["value"]
         lastaccepted["chi2"] =observables["chi2"]["value"]
         lastaccepted["chi2_ndf"]=observables["chi2_ndf"]["value"]
-
+        lastaccepted["micromegas_stdout"]=observables["micromegas_stdout"]["value"]
+        lastaccepted["ztoinv_excluded"] = observables["ztoinv_excluded"]["value"]
+        lastaccepted["lep_excluded"] = observables["lep_excluded"]["value"]
+        lastaccepted["masslim"] = observables["masslim"]["value"]
+        lastaccepted["omegah2"] = observables["omegah2"]["value"]
+        lastaccepted["omegaxf"] = observables["omegaxf"]["value"]
         #write point to root, start loop
         lastaccepted = prepare_fill(lastaccepted,outtree)#add the rest of the point info, fill the tree branches
         outtree.Fill()

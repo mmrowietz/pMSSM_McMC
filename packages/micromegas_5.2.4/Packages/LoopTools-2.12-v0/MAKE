@@ -1,1 +1,1 @@
-gmake -j 4
+gmake -j 8

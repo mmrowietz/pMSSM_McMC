@@ -491,7 +491,7 @@ int main(int argc,char** argv)
 //  sortOddParticles(cdmName);
 
    Omega=darkOmega(&Xf,fast,Beps,&err);
-   printf("Xf=%.2e Omega=%.2e\n",Xf,Omega);
+   printf("Xf=%.2e Omega=%.4f\n",Xf,Omega);
 
    if(Omega>0)printChannels(Xf,cut,Beps,1,stdout);
 
