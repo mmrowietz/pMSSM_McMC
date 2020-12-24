@@ -22,6 +22,7 @@ parameter_ranges["tb"] = (2,60)
 #choose in which parameters the space should be sampled with variable step sizes, give minimal step size and stepping profile
 variablesteps = {}
 for parameter in ["mu","M1","M2","M3","Mq1","Mq3","Mu1","Mu3","Md1","Md3","Ml1","Mr1","Ml3","Mr3","Mh3"]:
+    #formula for variable steps: width = max(variablesteps[parameter][0]*width,variablesteps[parameter]*parametervalue)
     #first value = coefficient on width lower threshold
     #second value = coefficient for width scaling with parameter value
     variablesteps[parameter] = [0.2,0.15]
@@ -35,6 +36,7 @@ fhexe = packagedir+"FeynHiggs-2.16.1/bin/FeynHiggs"
 sisoexe = packagedir+"superiso_v4.0/slha.x"
 #sisochi2exe = packagedir+"superiso_v4.0/slha_chi2.x" #use all of the non-controversial low-energy results in superiso chi2 calculation. takes approximately 20s/call
 sisochi2exe = packagedir+"superiso_v4.0/slha_chi2_reduced.x"#use only branching ratios in superiso chi2. takes approximately 8s/call
+mmgsexe = packagedir+"micromegas_5.2.4/MSSM/main"
 
 
 #containers for the tree branches. Numpy arrays are used as an interface between python types and the root branches
@@ -303,7 +305,10 @@ def run_superiso_chi2(slhapath):
     returndict["chi2_ndf"]={"value":ndf,"special_case":""}
 #    print siso_chi2_out
     return returndict
-
+def run_micromegas(slhapath):
+    micromegas_call = subprocess.Popen([mmgsexe,str(slhapath)], stdout=subprocess.PIPE)
+    micromegas_out = micromegas_call.stdout.read()
+    
 def setup_tree(outtree):
     for branch in tree_branches.keys():
         if tree_branches[branch]["dtype"] == "TString":#the container in this case is just a placeholder, since a new TString is created for each new tree entry. I am not sure if this can be done differently
