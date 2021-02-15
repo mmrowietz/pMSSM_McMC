@@ -1,4 +1,5 @@
 #this file should contain the mcmc decision function and the point generator
+import os
 import random
 from math import sqrt,log
 import argparse
@@ -8,6 +9,7 @@ import numpy as np
 import utils
 import likelihood
 import subprocess
+
 #set up the parameter ranges
 parameter_ranges ={}
 for parameter in ["mu","M1","M2"]:
@@ -19,6 +21,7 @@ for parameter in ["Ml1","Mr1","Ml3","Mr3","Mh3"]:
 for parameter in ["At","Ab","Al"]:
     parameter_ranges[parameter] = (-7000,7000)
 parameter_ranges["tb"] = (2,60)
+
 #choose in which parameters the space should be sampled with variable step sizes, give minimal step size and stepping profile
 variablesteps = {}
 for parameter in ["mu","M1","M2","M3","Mq1","Mq3","Mu1","Mu3","Md1","Md3","Ml1","Mr1","Ml3","Mr3","Mh3"]:
@@ -29,14 +32,15 @@ for parameter in ["mu","M1","M2","M3","Mq1","Mq3","Mu1","Mu3","Md1","Md3","Ml1",
 
 width_coefficient = 0.1 #the width coefficient of the gaussian for the mcmc step. This coefficient is multiplied by the parameter range to give the width of the gaussian.
 
-homedir = "/nfs/dust/cms/user/mrowietm/python_scan/pMSSM_McMC/"
-packagedir = homedir+"packages/"
+homedir = os.getcwd()
+packagedir = homedir+"/packages/"
 spnexe = packagedir+"SPheno-4.0.4/bin/SPheno"
-fhexe = packagedir+"FeynHiggs-2.16.1/bin/FeynHiggs"
+fhexe = packagedir+"FeynHiggs-2.16.1/x86_64-Linux/bin/FeynHiggs"
 sisoexe = packagedir+"superiso_v4.0/slha.x"
 #sisochi2exe = packagedir+"superiso_v4.0/slha_chi2.x" #use all of the non-controversial low-energy results in superiso chi2 calculation. takes approximately 20s/call
 sisochi2exe = packagedir+"superiso_v4.0/slha_chi2_reduced.x"#use only branching ratios in superiso chi2. takes approximately 8s/call
 mmgsexe = packagedir+"micromegas_5.2.4/MSSM/main"
+gm2exe = packagedir+"GM2Calc-1.7.3/build/bin/gm2calc.x"
 
 
 #containers for the tree branches. Numpy arrays are used as an interface between python types and the root branches
@@ -50,14 +54,19 @@ tree_branches["mtop"] = {"container":np.zeros(1,dtype = float),"dtype":"D"}
 tree_branches["mbottom"] = {"container":np.zeros(1,dtype = float),"dtype":"D"}
 tree_branches["alpha_s"] = {"container":np.zeros(1,dtype = float),"dtype":"D"}
 tree_branches["mhiggs"] = {"container":np.zeros(1,dtype = float),"dtype":"D"}
+tree_branches["mW"] = {"container":np.zeros(1,dtype = float),"dtype":"D"}
 for param in parameter_ranges.keys():
     tree_branches[param] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
 tree_branches["superiso_chi2_stdout"]={"container":TString(),"dtype":"TString"}
 tree_branches["superiso_stdout"]={"container":TString(),"dtype":"TString"}
 tree_branches["chi2"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
 tree_branches["chi2_ndf"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
-tree_branches["omegah2"] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
-tree_branches["micromegas_stdout"]={"container":TString(),"dtype":"TString"}
+tree_branches["gm2calc_stdout"]={"container":TString(),"dtype":"TString"}
+tree_branches["Dgm2_muon_x1E10"]={"container":np.zeros(1,dtype = float),"dtype":"D"}
+#tree_branches["omegah2"] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
+#tree_branches["micromegas_stdout"]={"container":TString(),"dtype":"TString"}
+
+
 #sign permutations for the pMSSM electroweak sector
 def get_sign(signchoice):
     sign_permutation = (0,0,0)#sign_permutation = (sign(mu),sign(M1),sign(M2))
@@ -117,11 +126,15 @@ def generate_point(input_point = {},signchoice = 0):
         output_point["alpha_s"] = random.gauss(input_point["alpha_s"],0.0011*width_coefficient)
     output_point["scale"] = sqrt(output_point["Mq3"]*output_point["Mu3"])
     return output_point
+
+# SPheno
 def run_spheno(inpath,devnull):
     cmd = " ".join([spnexe,inpath,devnull])
     os.system(cmd)
     error = open("Messages.out","r").read()
     return len(error) == 0
+
+# FeynHiggs
 def run_feynhiggs(devnull):
     """
     Replace the SPheno Higgs sector with the FeynHiggs one
@@ -136,10 +149,10 @@ def run_feynhiggs(devnull):
         print "could not find Feynhiggs output, skipping point"
         return False
     #fhin part: Get the new Higgs parameters
-    masses = {"Mh0":"","MHH":"","MA0":"","MHp":""}#dictionary to collect the FeynHiggs Higgs masses
+    masses = {"Mh0":"","MHH":"","MA0":"","MHp":"","MW":""}#dictionary to collect the FeynHiggs Higgs masses
     dmassblock= "Block"# No replacing needs to be done here, can just append the whole block at the end
     alpha = -1# for the FeynHiggs alpha values
-    decaytabs = {"25":"","35":"","36":"","37":""}#dictionary to collect the FeynHiggs decay tables
+    decaytabs = {"25":"","35":"","36":"","37":"","24":""}#dictionary to collect the FeynHiggs decay tables
     with open(fhin,"r") as feynin:
         fhtab = feynin.read()
         blocks = fhtab[:fhtab.find("DECAY")].split("BLOCK")#put all the block in a list
@@ -164,7 +177,7 @@ def run_feynhiggs(devnull):
             if pdgid in decaytabs:#only interested in Higgs boson decay tables
                 decaytabs[pdgid] = "DECAY"+decay#save the respective decay blocks
     #spnin part: find the obsolete Higgs-related parts in the SPheno generated SLHA file
-    translate = {"h0":"Mh0","H0":"MHH","A0":"MA0","H)+":"MHp"}# dictionary to translate from SPheno naming convention to FeynHiggs naming convention
+    translate = {"h0":"Mh0","H0":"MHH","A0":"MA0","H)+":"MHp","W+":"MW"}# dictionary to translate from SPheno naming convention to FeynHiggs naming convention
     with open(spnin,"r") as tmpin:
         spntab = tmpin.read()#original file content
         newcont = spntab#copy of the original file content. This will be modified with the FeynHiggs masses and decays, then replace the original content
@@ -197,8 +210,10 @@ def run_feynhiggs(devnull):
         #write out new file
     with open(spnin,"w") as outfile:
         outfile.write(newcont)#overwrite SPheno file
-    os.system("rm "+fhin)# clean up
+#    os.system("rm "+fhin)# clean up
     return True
+
+
 def get_observables(slhapath):
     """
     get the observables from the slha file
@@ -210,11 +225,15 @@ def get_observables(slhapath):
         #get the masses
         mblock = blocks[14]
         masses = mblock.split("\n")[2:-2]
+
         returndict["mtop"] = {"value":float(" ".join(masses[0].split()).split()[1])}
         returndict["mhiggs"] = {"value":float(" ".join(masses[4].split()).split()[1])}
+        returndict["mW"] = {"value":float(" ".join(masses[2].split()).split()[1])}
+
         #get the higgs mass uncertainty
         dmblock = blocks[15]
         dmasses = dmblock.split("\n")[1:-1]
+
         try:
             returndict["mhiggs"]["uncertainty"]=float(" ".join(dmasses[0].split()).split()[1])
         except:
@@ -225,64 +244,35 @@ def get_observables(slhapath):
         sminputs = smblock.split("\n")[1:-1]
         returndict["alpha_s"] = {"value":float(" ".join(sminputs[2].split()).split()[1])}
         returndict["mbottom"] = {"value":float(" ".join(sminputs[4].split()).split()[1])}
+
     return returndict
 
+def read_superiso_out(search_str,siso_out):
+    variable_str = siso_out[siso_out.find(search_str)+len(search_str):]
+    variable = float(variable_str[:variable_str.find("\n")].strip())
+    return variable
+
+# superiso
 def run_superiso(slhapath):
     siso_call = subprocess.Popen([sisoexe,str(slhapath)], stdout=subprocess.PIPE)
     siso_out = siso_call.stdout.read()
     if len(siso_out)<10:
         print "something went wrong with siso call!"
-        print siso_out
+#        print siso_out
     returndict = {"superiso_stdout":{"value":siso_out,"special_case":""}}
     #get the individual observables from stdout
     try:
-        BR_Bplus_to_Kstar_gamma = siso_out[siso_out.find("BR(B+->K* gamma)")+len("BR(B+->K* gamma)"):]
-        BR_Bplus_to_Kstar_gamma = float(BR_Bplus_to_Kstar_gamma[:BR_Bplus_to_Kstar_gamma.find("\n")].strip())
-        returndict["BR_Bplus_to_Kstar_gamma"] = {"value":BR_Bplus_to_Kstar_gamma}
-        BR_B_to_Xs_tau_tau_high = siso_out[siso_out.find("BR(B->Xs tau tau)_high")+len("BR(B->Xs tau tau)_high"):]
-        
-        BR_B_to_Xs_tau_tau_high = float(BR_B_to_Xs_tau_tau_high[:BR_B_to_Xs_tau_tau_high.find("\n")].strip())
-        returndict["BR_B_to_Xs_tau_tau_high"] = {"value":BR_B_to_Xs_tau_tau_high}
-        
-        BR_B_to_tau_nu = siso_out[siso_out.find("BR(B->tau nu)")+len("BR(B->tau nu)"):]
-        BR_B_to_tau_nu = float(BR_B_to_tau_nu[:BR_B_to_tau_nu.find("\n")].strip())
-        returndict["BR_B_to_tau_nu"] = {"value":BR_B_to_tau_nu}
-        
-        R_B_to_tau_nu = siso_out[siso_out.find("R(B->tau nu)")+len("R(B->tau nu)"):]#this is the ratio of the above w.r.t. the SM value, so only use one of them in the likelihood!
-        R_B_to_tau_nu = float(R_B_to_tau_nu[:R_B_to_tau_nu.find("\n")].strip())
-        returndict["R_B_to_tau_nu"] = {"value":R_B_to_tau_nu}
-        
-        BR_B_to_D_tau_nu = siso_out[siso_out.find("BR(B->D tau nu)")+len("BR(B->D tau nu)"):]
-        BR_B_to_D_tau_nu = float(BR_B_to_D_tau_nu[:BR_B_to_D_tau_nu.find("\n")].strip())
-        returndict["BR_B_to_D_tau_nu"] = {"value":BR_B_to_D_tau_nu}
-        
-        BR_B_to_D_tau_nu_div_BR_B_to_D_e_nu = siso_out[siso_out.find("BR(B->D tau nu)/BR(B->D e nu)")+len("BR(B->D tau nu)/BR(B->D e nu)"):]#this observable is probably quite correlated with the above, might want to only use one of them for the likelihood
-        BR_B_to_D_tau_nu_div_BR_B_to_D_e_nu = float(BR_B_to_D_tau_nu_div_BR_B_to_D_e_nu[:BR_B_to_D_tau_nu_div_BR_B_to_D_e_nu.find("\n")].strip())
-        returndict["BR_B_to_D_tau_nu_div_BR_B_to_D_e_nu"] = {"value":BR_B_to_D_tau_nu_div_BR_B_to_D_e_nu}
-        
-        BR_Ds_to_tau_nu = siso_out[siso_out.find("BR(Ds->tau nu)")+len("BR(Ds->tau nu)"):]
-        BR_Ds_to_tau_nu = float(BR_Ds_to_tau_nu[:BR_Ds_to_tau_nu.find("\n")].strip())
-        returndict["BR_Ds_to_tau_nu"] = {"value":BR_Ds_to_tau_nu}
-        
-        BR_Ds_to_mu_nu = siso_out[siso_out.find("BR(Ds->mu nu)")+len("BR(Ds->mu nu)"):]
-        BR_Ds_to_mu_nu = float(BR_Ds_to_mu_nu[:BR_Ds_to_mu_nu.find("\n")].strip())
-        returndict["BR_Ds_to_mu_nu"] = {"value":BR_Ds_to_mu_nu}
-        
-        BR_D_to_mu_nu = siso_out[siso_out.find("BR(D->mu nu)")+len("BR(D->mu nu)"):]
-        BR_D_to_mu_nu = float(BR_D_to_mu_nu[:BR_D_to_mu_nu.find("\n")].strip())
-        returndict["BR_D_to_mu_nu"] = {"value":BR_D_to_mu_nu}
-        
-        BR_K_to_mu_nu_div_BR_pi_to_mu_nu = siso_out[siso_out.find("BR(K->mu nu)/BR(pi->mu nu)")+len("BR(K->mu nu)/BR(pi->mu nu)"):]
-        BR_K_to_mu_nu_div_BR_pi_to_mu_nu = float(BR_K_to_mu_nu_div_BR_pi_to_mu_nu[:BR_K_to_mu_nu_div_BR_pi_to_mu_nu.find("\n")].strip())
-        returndict["BR_K_to_mu_nu_div_BR_pi_to_mu_nu"] = {"value":BR_K_to_mu_nu_div_BR_pi_to_mu_nu}
-        
-        Rmu23_K_to_mu_nu = siso_out[siso_out.find("Rmu23(K->mu nu)")+len("Rmu23(K->mu nu)"):]
-        Rmu23_K_to_mu_nu = float(Rmu23_K_to_mu_nu[:Rmu23_K_to_mu_nu.find("\n")].strip())
-        returndict["Rmu23_K_to_mu_nu"] = {"value":Rmu23_K_to_mu_nu}
-        
-        a_muon = siso_out[siso_out.find("a_muon")+len("a_muon"):]
-        a_muon = float(a_muon[:a_muon.find("\n")].strip())
-        returndict["a_muon"] = {"value":a_muon}
+
+        returndict["Delta0_B_to_K_gamma"] = {"value":read_superiso_out("delta0(B->K* gamma)",siso_out)}
+        returndict["BR_B0_K0star_gamma"] = {"value":read_superiso_out("BR(B0->K* gamma)",siso_out)}
+        returndict["BR_Bs_to_mu_mu"] = {"value":read_superiso_out("BR(Bs->mu mu)",siso_out)}
+        returndict["BR_Bd_to_mu_mu"] = {"value":read_superiso_out("BR(Bd->mu mu)",siso_out)}
+#        returndict["BR_b_to_s_mu_mu"] = {"value":read_superiso_out()}
+#        returndict["BR_b_to_s_e_e"] = {"value":read_superiso_out()}
+#        returndict["BR_b_to_s_gamma"] = {"value":read_superiso_out("BR(b->s gamma)")}
+
+        returndict["a_muon"] = {"value":read_superiso_out("a_muon",siso_out)}
+
     except:
         print "something went wrong with siso call, printing output"
         print siso_out
@@ -290,6 +280,7 @@ def run_superiso(slhapath):
         return -1
 #    print siso_out
     return returndict
+
 def run_superiso_chi2(slhapath):
     siso_chi2_call = subprocess.Popen([sisochi2exe,str(slhapath)], stdout=subprocess.PIPE)
     siso_chi2_out = siso_chi2_call.stdout.read()
@@ -306,6 +297,8 @@ def run_superiso_chi2(slhapath):
     returndict["chi2_ndf"]={"value":ndf,"special_case":""}
 #    print siso_chi2_out
     return returndict
+
+# MicroMegas
 def run_micromegas(slhapath):
     print "calling micromegas"
     micromegas_call = subprocess.Popen(mmgsexe+" "+str(slhapath), stdout=subprocess.PIPE,shell=True)
@@ -327,7 +320,27 @@ def run_micromegas(slhapath):
     omegaxf = float(micromegas_out[micromegas_out.find("Xf=")+len("Xf="):micromegas_out.find("Omega=")].strip())
     returndict["omegaxf"] = {"value":omegaxf,"special_case":""}
     return returndict
-    
+
+# GM2Calc                                                                                                                         
+def run_gm2calc(slhapath):
+    gm2_call = subprocess.Popen(gm2exe+" --slha-input-file="+str(slhapath), stdout=subprocess.PIPE,shell=True)
+    gm2_out = gm2_call.stdout.read()
+
+    returndict = {"gm2calc_stdout":{"value":gm2_out,"special_case":""}}
+
+    try:
+        blocks = gm2_out.split("Block")
+        gm2_str = blocks[-1].split()[2]
+        print(gm2_str)
+        returndict["Dgm2_muon_x1E10"] = {"value":float(gm2_str)*pow(10,10)}
+
+    except:
+        print "something went wrong with siso call, printing output"
+        print gm2_out
+        print "rejecting candidate point"
+        return -1
+
+    return returndict
     
 def setup_tree(outtree):
     for branch in tree_branches.keys():
@@ -347,7 +360,6 @@ def prepare_fill(point,outtree):
             tvals[key] = TString(val)
             outtree.SetBranchAddress(key,tvals[key])
 #            point_info[key]=val
-
 
     with open("SPheno.spc","r") as spnin:
         slhacont = spnin.read()
@@ -384,12 +396,15 @@ def prepare_fill(point,outtree):
         point_info["mtop"] = float(" ".join(sms[5].split()).split()[1])
         masses = blocks[14].split("\n")[2:-2]
         point_info["mhiggs"] = float(" ".join(masses[4].split()).split()[1])
+        point_info["mW"] = float(" ".join(masses[2].split()).split()[1])
         slha_file = TString(slhafile)
         outtree.SetBranchAddress("slha_file",slha_file)
     for key in tree_branches.keys():#exclude strings
         if tree_branches[key]["dtype"]=="TString":continue
         tree_branches[key]["container"][0]=point_info[key]
     return point_info
+
+
 def run(arguments):
     mode = arguments.mode
     chainix = arguments.chain_index
@@ -424,9 +439,12 @@ def run(arguments):
 
             if not run_feynhiggs('>& /dev/null'):#run feynhiggs, replace higgs sector
                 continue
-            os.system("cp SPheno.spc mmgsin.slha")
-            mmgs_obs = run_micromegas(slhapath="mmgsin.slha")#micromegas seems to consume the input file?!?!
-            os.system("mv mmgsin.slha SPheno.spc")
+
+            gm2_obs = run_gm2calc(slhapath="SPheno.spc")
+
+#            os.system("cp SPheno.spc mmgsin.slha")
+#            mmgs_obs = run_micromegas(slhapath="mmgsin.slha")#micromegas seems to consume the input file?!?!
+#            os.system("mv mmgsin.slha SPheno.spc")
             print "getting the stuff from the slha file"
             observables = get_observables(slhapath = "SPheno.spc") #get observables for the likelihood
             siso_obs = run_superiso("SPheno.spc")
@@ -437,31 +455,38 @@ def run(arguments):
             siso_chi2_obs = run_superiso_chi2("SPheno.spc")
             for obs in siso_chi2_obs:
                 observables[obs] = siso_chi2_obs[obs]
-            for obs in mmgs_obs:
-                observables[obs] = mmgs_obs[obs]
+            for obs in gm2_obs:
+                observables[obs] = gm2_obs[obs]
+#            for obs in mmgs_obs:
+#                observables[obs] = mmgs_obs[obs]
+
             _l = likelihood.get_likelihood(observables)#get likelihood
             finite_lh = _l != 0
         lastaccepted["likelihood"]=_l
         lastaccepted["iteration_index"] = 1
         lastaccepted["accepted_index"] = 1
         lastaccepted["chain_index"] = chainix
-        lastaccepted["superiso_chi2_stdout"] = observables["superiso_chi2_stdout"]["value"]
-        lastaccepted["superiso_stdout"] =observables["superiso_stdout"]["value"]
-        lastaccepted["chi2"] =observables["chi2"]["value"]
-        lastaccepted["chi2_ndf"]=observables["chi2_ndf"]["value"]
-        lastaccepted["micromegas_stdout"]=observables["micromegas_stdout"]["value"]
-        lastaccepted["ztoinv_excluded"] = observables["ztoinv_excluded"]["value"]
-        lastaccepted["lep_excluded"] = observables["lep_excluded"]["value"]
-        lastaccepted["masslim"] = observables["masslim"]["value"]
-        lastaccepted["omegah2"] = observables["omegah2"]["value"]
-        lastaccepted["omegaxf"] = observables["omegaxf"]["value"]
+#        lastaccepted["superiso_chi2_stdout"] = observables["superiso_chi2_stdout"]["value"]
+#        lastaccepted["superiso_stdout"] =observables["superiso_stdout"]["value"]
+#        lastaccepted["chi2"] =observables["chi2"]["value"]
+#        lastaccepted["chi2_ndf"]=observables["chi2_ndf"]["value"]
+#        lastaccepted["Dgm2_muon"]=observables["Dgm2_muon"]["value"]
+#        lastaccepted["micromegas_stdout"]=observables["micromegas_stdout"]["value"]
+#        lastaccepted["ztoinv_excluded"] = observables["ztoinv_excluded"]["value"]
+#        lastaccepted["lep_excluded"] = observables["lep_excluded"]["value"]
+#        lastaccepted["masslim"] = observables["masslim"]["value"]
+#        lastaccepted["omegah2"] = observables["omegah2"]["value"]
+#        lastaccepted["omegaxf"] = observables["omegaxf"]["value"]
         
         
-        #write point to root, start loop
+        # write point to root, start loop
         for obs in observables.keys():
             lastaccepted[obs] = observables[obs]["value"]
+
+#        print(type(observables["Dgm2_muon"]["value"]))
         lastaccepted = prepare_fill(lastaccepted,outtree)#add the rest of the point info, fill the tree branches
         outtree.Fill()
+
     #mode 2: continue from previous point/root file?
     elif mode == "resume":
         lastaccepted = utils.get_point_from_rootfile(inpath,chainix)
@@ -501,9 +526,12 @@ def run(arguments):
                 spnerr = run_spheno(spnin,devnull) #run spheno, check if viable point
             if not run_feynhiggs('>& /dev/null'):#run feynhiggs, replace higgs sector
                 continue
-            os.system("cp SPheno.spc mmgsin.slha")
-            mmgs_obs = run_micromegas(slhapath="mmgsin.slha")
-            os.system("mv mmgsin.slha SPheno.spc")
+
+            gm2_obs = run_gm2calc(slhapath="SPheno.spc")
+
+#            os.system("cp SPheno.spc mmgsin.slha")
+#            mmgs_obs = run_micromegas(slhapath="mmgsin.slha")
+#            os.system("mv mmgsin.slha SPheno.spc")
 
             observables = get_observables(slhapath = "SPheno.spc") #get observables for the likelihood
             siso_obs = run_superiso("SPheno.spc")
@@ -514,8 +542,11 @@ def run(arguments):
             siso_chi2_obs = run_superiso_chi2("SPheno.spc")
             for obs in siso_chi2_obs:
                 observables[obs] = siso_chi2_obs[obs]
-            for obs in mmgs_obs:
-                observables[obs] = mmgs_obs[obs]
+            for obs in gm2_obs:
+                observables[obs] = gm2_obs[obs]
+                
+#            for obs in mmgs_obs:
+#                observables[obs] = mmgs_obs[obs]
 
             _l = likelihood.make_decision(observables,lastaccepted["likelihood"])#get likelihood
             finite_lh = _l != 0
@@ -528,21 +559,26 @@ def run(arguments):
                 outroot.Close()
                 os.system(" ".join(["mv",outname,outdir]))
             continue #point was not accepted
+
         lastaccepted["likelihood"]=_l
         lastaccepted["iteration_index"] = iter_ix
         lastaccepted["accepted_index"] =lastaccepted["accepted_index"]+1
         lastaccepted["chain_index"] = chainix
-        lastaccepted["superiso_chi2_stdout"] = observables["superiso_chi2_stdout"]["value"]
-        lastaccepted["superiso_stdout"] =observables["superiso_stdout"]["value"]
-        lastaccepted["chi2"] =observables["chi2"]["value"]
-        lastaccepted["chi2_ndf"]=observables["chi2_ndf"]["value"]
-        lastaccepted["micromegas_stdout"]=observables["micromegas_stdout"]["value"]
-        lastaccepted["ztoinv_excluded"] = observables["ztoinv_excluded"]["value"]
-        lastaccepted["lep_excluded"] = observables["lep_excluded"]["value"]
-        lastaccepted["masslim"] = observables["masslim"]["value"]
-        lastaccepted["omegah2"] = observables["omegah2"]["value"]
-        lastaccepted["omegaxf"] = observables["omegaxf"]["value"]
-        #write point to root, start loop
+#        lastaccepted["superiso_chi2_stdout"] = observables["superiso_chi2_stdout"]["value"]
+#        lastaccepted["superiso_stdout"] =observables["superiso_stdout"]["value"]
+#        lastaccepted["chi2"] =observables["chi2"]["value"]
+#        lastaccepted["chi2_ndf"]=observables["chi2_ndf"]["value"]
+#        lastaccepted["Dgm2_muon"]=observables["Dgm2_muon"]["value"]
+#        lastaccepted["micromegas_stdout"]=observables["micromegas_stdout"]["value"]
+#        lastaccepted["ztoinv_excluded"] = observables["ztoinv_excluded"]["value"]
+#        lastaccepted["lep_excluded"] = observables["lep_excluded"]["value"]
+#        lastaccepted["masslim"] = observables["masslim"]["value"]
+#        lastaccepted["omegah2"] = observables["omegah2"]["value"]
+#        lastaccepted["omegaxf"] = observables["omegaxf"]["value"]
+
+        for obs in observables.keys():
+            lastaccepted[obs] = observables[obs]["value"]
+
         lastaccepted = prepare_fill(lastaccepted,outtree)#add the rest of the point info, fill the tree branches
         outtree.Fill()
         if iter_ix == start+tend:
