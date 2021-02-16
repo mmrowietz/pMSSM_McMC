@@ -19,7 +19,7 @@ likelihood_contributions["mW"] = {"value":80.379,"uncertainty":0.012}
 # from gm2calc
 # https://pdg.lbl.gov/2019/reviews/rpp2018-rev-g-2-muon-anom-mag-moment.pdf
 # scale by 1E11
-likelihood_contributions["Delta_a_mu_x1E11"]={"value":261,"uncertainty":79.E}
+likelihood_contributions["Delta_a_mu_x1E11"]={"value":261,"uncertainty":63.E}
 
 # from SPheno
 # https://pdg.lbl.gov/2020/listings/rpp2020-list-B-plus-minus.pdf
