@@ -323,6 +323,17 @@ def run_micromegas(slhapath):
 
 # GM2Calc                                                                                                                         
 def run_gm2calc(slhapath):
+
+    with open(slhapath, "a+") as file_object:
+        file_object.write("\n")
+        file_object.write("Block GM2CalcConfig\n")
+        file_object.write("     0     4     # output format \n")
+        file_object.write("     1     2     # loop order (0, 1 or 2) \n")
+        file_object.write("     2     1     # disable/enable tan(beta) resummation (0 or 1) \n")
+        file_object.write("     3     0     # force output (0 or 1) \n")
+        file_object.write("     4     0     # verbose output (0 or 1) \n")
+        file_object.write("     5     1     # calculate uncertainty \n")
+
     gm2_call = subprocess.Popen(gm2exe+" --slha-input-file="+str(slhapath), stdout=subprocess.PIPE,shell=True)
     gm2_out = gm2_call.stdout.read()
 
@@ -331,8 +342,8 @@ def run_gm2calc(slhapath):
     try:
         blocks = gm2_out.split("Block")
         gm2_str = blocks[-1].split()[2]
-        print(gm2_str)
-        returndict["Dgm2_muon_x1E10"] = {"value":float(gm2_str)*pow(10,10)}
+        gm2_unc_str = blocks[-1].split()[6]
+        returndict["Dgm2_muon_x1E10"] = {"value":float(gm2_str)*pow(10,10),"uncertainty":float(gm2_unc_str)*pow(10,10)}
 
     except:
         print "something went wrong with siso call, printing output"
