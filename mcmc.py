@@ -39,6 +39,8 @@ fhexe = packagedir+"FeynHiggs-2.16.1/x86_64-Linux/bin/FeynHiggs"
 sisoexe = packagedir+"superiso_v4.0/slha.x"
 #sisochi2exe = packagedir+"superiso_v4.0/slha_chi2.x" #use all of the non-controversial low-energy results in superiso chi2 calculation. takes approximately 20s/call
 sisochi2exe = packagedir+"superiso_v4.0/slha_chi2_reduced.x"#use only branching ratios in superiso chi2. takes approximately 8s/call
+hbexe = packagedir+"higgsbounds/build/HiggsBounds"
+hsexe =packagedir+"higgssignals/build/HiggsSignals"
 mmgsexe = packagedir+"micromegas_5.2.4/MSSM/main"
 gm2exe = packagedir+"GM2Calc-1.7.3/build/bin/gm2calc.x"
 
@@ -59,10 +61,12 @@ for param in parameter_ranges.keys():
     tree_branches[param] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
 tree_branches["superiso_chi2_stdout"]={"container":TString(),"dtype":"TString"}
 tree_branches["superiso_stdout"]={"container":TString(),"dtype":"TString"}
-tree_branches["chi2"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
-tree_branches["chi2_ndf"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+tree_branches["siso_chi2"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
+tree_branches["siso_chi2_ndf"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+tree_branches["hb_stdout"]={"container":TString(),"dtype":"TString"}
+tree_branches["hs_stdout"]={"container":TString(),"dtype":"TString"}
 tree_branches["gm2calc_stdout"]={"container":TString(),"dtype":"TString"}
-tree_branches["Dgm2_muon_x1E10"]={"container":np.zeros(1,dtype = float),"dtype":"D"}
+tree_branches["Delta_a_mu_x1E11"]={"container":np.zeros(1,dtype = float),"dtype":"D"}
 #tree_branches["omegah2"] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
 #tree_branches["micromegas_stdout"]={"container":TString(),"dtype":"TString"}
 
@@ -260,18 +264,17 @@ def run_superiso(slhapath):
         print "something went wrong with siso call!"
 #        print siso_out
     returndict = {"superiso_stdout":{"value":siso_out,"special_case":""}}
-    #get the individual observables from stdout
+
+    # get the individual observables from stdout
     try:
 
-        returndict["Delta0_B_to_K_gamma"] = {"value":read_superiso_out("delta0(B->K* gamma)",siso_out)}
+        returndict["Delta0_B_to_K0star_gamma"] = {"value":read_superiso_out("delta0(B->K* gamma)",siso_out)}
         returndict["BR_B0_K0star_gamma"] = {"value":read_superiso_out("BR(B0->K* gamma)",siso_out)}
         returndict["BR_Bs_to_mu_mu"] = {"value":read_superiso_out("BR(Bs->mu mu)",siso_out)}
         returndict["BR_Bd_to_mu_mu"] = {"value":read_superiso_out("BR(Bd->mu mu)",siso_out)}
 #        returndict["BR_b_to_s_mu_mu"] = {"value":read_superiso_out()}
 #        returndict["BR_b_to_s_e_e"] = {"value":read_superiso_out()}
-#        returndict["BR_b_to_s_gamma"] = {"value":read_superiso_out("BR(b->s gamma)")}
-
-        returndict["a_muon"] = {"value":read_superiso_out("a_muon",siso_out)}
+        returndict["BR_b_to_s_gamma"] = {"value":read_superiso_out("BR(b->s gamma)",siso_out)}
 
     except:
         print "something went wrong with siso call, printing output"
@@ -291,11 +294,46 @@ def run_superiso_chi2(slhapath):
     returndict = {"superiso_chi2_stdout":{"value":siso_chi2_out,"special_case":""}}
     chi2 = siso_chi2_out[siso_chi2_out.find("chi2"):]
     chi2 = float(chi2[chi2.find("=")+1:chi2.find("\n")].strip())
-    returndict["chi2"]={"value":chi2,"special_case":""}
+    returndict["siso_chi2"]={"value":chi2,"special_case":""}
     ndf = siso_chi2_out[siso_chi2_out.find("n_obs"):]
     ndf = int(ndf[ndf.find("=")+1:ndf.find("\n")].strip())
-    returndict["chi2_ndf"]={"value":ndf,"special_case":""}
+    returndict["siso_chi2_ndf"]={"value":ndf,"special_case":""}
 #    print siso_chi2_out
+    return returndict
+
+# HiggsSignals
+def run_higgssignals(slhapath):
+    hs_call = subprocess.Popen(hsexe+" latestresults 1 SLHA 3 1 "+slhapath, stdout=subprocess.PIPE,shell=True)
+    hs_out = hs_call.stdout.read()
+
+    print(hs_out)
+    print("got output hs")
+
+    returndict = {"hs_stdout":{"value":hs_out,"special_case":""}}
+    return returndict
+    
+# HiggsBounds
+def run_higgsbounds(slhapath):
+
+    hb_call = subprocess.Popen(hbexe+" LandH SLHA 3 1 "+slhapath, stdout=subprocess.PIPE,shell=True)
+    hb_out = hb_call.stdout.read()
+
+    print("got output hb")
+
+    returndict = {"hb_stdout":{"value":hb_out,"special_case":""}}
+
+#    try:
+#        blocks = gm2_out.split("Block")
+#        gm2_str = blocks[-1].split()[2]
+#        gm2_unc_str = blocks[-1].split()[6]
+#        returndict["Dgm2_muon_x1E10"] = {"value":float(gm2_str)*pow(10,10),"uncertainty":float(gm2_unc_str)*pow(10,10)}
+
+#    except:
+#        print "something went wrong with siso call, printing output"
+#        print gm2_out
+#        print "rejecting candidate point"
+#        return -1
+
     return returndict
 
 # MicroMegas
@@ -321,7 +359,7 @@ def run_micromegas(slhapath):
     returndict["omegaxf"] = {"value":omegaxf,"special_case":""}
     return returndict
 
-# GM2Calc                                                                                                                         
+# GM2Calc                                                                                  
 def run_gm2calc(slhapath):
 
     with open(slhapath, "a+") as file_object:
@@ -343,7 +381,7 @@ def run_gm2calc(slhapath):
         blocks = gm2_out.split("Block")
         gm2_str = blocks[-1].split()[2]
         gm2_unc_str = blocks[-1].split()[6]
-        returndict["Dgm2_muon_x1E10"] = {"value":float(gm2_str)*pow(10,10),"uncertainty":float(gm2_unc_str)*pow(10,10)}
+        returndict["Delta_a_mu_x1E11"] = {"value":float(gm2_str)*pow(10,11),"uncertainty":float(gm2_unc_str)*pow(10,11)}
 
     except:
         print "something went wrong with siso call, printing output"
@@ -453,6 +491,9 @@ def run(arguments):
 
             gm2_obs = run_gm2calc(slhapath="SPheno.spc")
 
+            hb_obs = run_higgsbounds(slhapath="SPheno.spc")
+            hs_obs = run_higgssignals(slhapath="SPheno.spc")
+
 #            os.system("cp SPheno.spc mmgsin.slha")
 #            mmgs_obs = run_micromegas(slhapath="mmgsin.slha")#micromegas seems to consume the input file?!?!
 #            os.system("mv mmgsin.slha SPheno.spc")
@@ -477,24 +518,12 @@ def run(arguments):
         lastaccepted["iteration_index"] = 1
         lastaccepted["accepted_index"] = 1
         lastaccepted["chain_index"] = chainix
-#        lastaccepted["superiso_chi2_stdout"] = observables["superiso_chi2_stdout"]["value"]
-#        lastaccepted["superiso_stdout"] =observables["superiso_stdout"]["value"]
-#        lastaccepted["chi2"] =observables["chi2"]["value"]
-#        lastaccepted["chi2_ndf"]=observables["chi2_ndf"]["value"]
-#        lastaccepted["Dgm2_muon"]=observables["Dgm2_muon"]["value"]
-#        lastaccepted["micromegas_stdout"]=observables["micromegas_stdout"]["value"]
-#        lastaccepted["ztoinv_excluded"] = observables["ztoinv_excluded"]["value"]
-#        lastaccepted["lep_excluded"] = observables["lep_excluded"]["value"]
-#        lastaccepted["masslim"] = observables["masslim"]["value"]
-#        lastaccepted["omegah2"] = observables["omegah2"]["value"]
-#        lastaccepted["omegaxf"] = observables["omegaxf"]["value"]
-        
         
         # write point to root, start loop
         for obs in observables.keys():
             lastaccepted[obs] = observables[obs]["value"]
 
-#        print(type(observables["Dgm2_muon"]["value"]))
+#        print(type(observables["Delta_a_mu_x1E11"]["value"]))
         lastaccepted = prepare_fill(lastaccepted,outtree)#add the rest of the point info, fill the tree branches
         outtree.Fill()
 
@@ -540,6 +569,9 @@ def run(arguments):
 
             gm2_obs = run_gm2calc(slhapath="SPheno.spc")
 
+            hb_obs = run_higgsbounds(slhapath="SPheno.spc")
+            hs_obs = run_higgssignals(slhapath="SPheno.spc")
+
 #            os.system("cp SPheno.spc mmgsin.slha")
 #            mmgs_obs = run_micromegas(slhapath="mmgsin.slha")
 #            os.system("mv mmgsin.slha SPheno.spc")
@@ -575,17 +607,6 @@ def run(arguments):
         lastaccepted["iteration_index"] = iter_ix
         lastaccepted["accepted_index"] =lastaccepted["accepted_index"]+1
         lastaccepted["chain_index"] = chainix
-#        lastaccepted["superiso_chi2_stdout"] = observables["superiso_chi2_stdout"]["value"]
-#        lastaccepted["superiso_stdout"] =observables["superiso_stdout"]["value"]
-#        lastaccepted["chi2"] =observables["chi2"]["value"]
-#        lastaccepted["chi2_ndf"]=observables["chi2_ndf"]["value"]
-#        lastaccepted["Dgm2_muon"]=observables["Dgm2_muon"]["value"]
-#        lastaccepted["micromegas_stdout"]=observables["micromegas_stdout"]["value"]
-#        lastaccepted["ztoinv_excluded"] = observables["ztoinv_excluded"]["value"]
-#        lastaccepted["lep_excluded"] = observables["lep_excluded"]["value"]
-#        lastaccepted["masslim"] = observables["masslim"]["value"]
-#        lastaccepted["omegah2"] = observables["omegah2"]["value"]
-#        lastaccepted["omegaxf"] = observables["omegaxf"]["value"]
 
         for obs in observables.keys():
             lastaccepted[obs] = observables[obs]["value"]
