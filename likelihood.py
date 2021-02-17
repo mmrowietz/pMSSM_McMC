@@ -19,7 +19,7 @@ likelihood_contributions["mW"] = {"value":80.379,"uncertainty":0.012}
 # from gm2calc
 # https://pdg.lbl.gov/2019/reviews/rpp2018-rev-g-2-muon-anom-mag-moment.pdf
 # scale by 1E11
-likelihood_contributions["Delta_a_mu_x1E11"]={"value":261,"uncertainty":63.E}
+likelihood_contributions["Delta_a_mu_x1E11"]={"value":261,"uncertainty":63.}
 
 # from SPheno
 # https://pdg.lbl.gov/2020/listings/rpp2020-list-B-plus-minus.pdf
@@ -34,18 +34,18 @@ likelihood_contributions["drho"]={"value":3.9E-04,"uncertainty":1.9E-04}
 
 # From superiso
 #https://hflav-eos.web.cern.ch/hflav-eos/rare/April2019/RADLL/OUTPUT/HTML/radll_table7.html
-likelihood_contributions["Delta0_B_to_K0star_gamma"] = {"value":0.063,"uncertainty":0.017}
+#likelihood_contributions["Delta0_B_to_K0star_gamma"] = {"value":0.063,"uncertainty":0.017}
 #https://pdg.lbl.gov/2020/listings/rpp2020-list-B-zero.pdf
-likelihood_contributions["BR_B0_K0star_gamma"] = {"value":41.7E-06,"uncertainty":1.2E-06}
+#likelihood_contributions["BR_B0_K0star_gamma"] = {"value":41.7E-06,"uncertainty":1.2E-06}
 
 #https://hflav-eos.web.cern.ch/hflav-eos/rare/April2019/BS/OUTPUT/TABLES/PDF/bs.pdf
-likelihood_contributions["BR_Bs_to_mu_mu"] = {"value":3.1E-09,"uncertainty":0.6E-09}
-likelihood_contributions["BR_Bd_to_mu_mu"] = {"value":1.1E-10,"uncertainty":[1.3E-10,1.4E-10]}
+#likelihood_contributions["BR_Bs_to_mu_mu"] = {"value":3.1E-09,"uncertainty":0.6E-09}
+#likelihood_contributions["BR_Bd_to_mu_mu"] = {"value":1.1E-10,"uncertainty":[1.3E-10,1.4E-10]}
 
 #https://hflav-eos.web.cern.ch/hflav-eos/rare/April2019/RADLL/OUTPUT/HTML/radll_table3.html
 #likelihood_contributions["BR_b_to_s_mu_mu"] = {"value":4.27E-06,"uncertainty":[0.91E-06,0.98E-06]}
 #likelihood_contributions["BR_b_to_s_e_e"] = {"value":6.67E-06,"uncertainty":0.82E-06}
-likelihood_contributions["BR_b_to_s_gamma"] = {"value":332E-06,"uncertainty":15E-06}
+#likelihood_contributions["BR_b_to_s_gamma"] = {"value":332E-06,"uncertainty":15E-06}
 
 def get_likelihood(observables):
     """

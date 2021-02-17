@@ -10,28 +10,37 @@ import utils
 import likelihood
 import subprocess
 
-#set up the parameter ranges
+# set up the parameter ranges 
+# positive definite only: signs dealt with below
 parameter_ranges ={}
-for parameter in ["mu","M1","M2"]:
-    parameter_ranges[parameter] = (-4000,4000)
-for parameter in ["M3","Mq1","Mq3","Mu1","Mu3","Md1","Md3"]:
-    parameter_ranges[parameter] = (0,10000)
-for parameter in ["Ml1","Mr1","Ml3","Mr3","Mh3"]:
-    parameter_ranges[parameter] = (0,4000)
-for parameter in ["At","Ab","Al"]:
-    parameter_ranges[parameter] = (-7000,7000)
-parameter_ranges["tb"] = (2,60)
+parameter_ranges["tb"] = (1,60)
+parameter_ranges["Mh3"] = (100,25000)
+parameter_ranges["mu"] = (80,25000) # can be <0
+parameter_ranges["M1"] = (1,25000) # can be <0
+parameter_ranges["M2"] = (70,25000) # can be <0
+parameter_ranges["M3"] = (200,50000)
+for parameter in ["Ml1","Mr1","Ml3","Mr3"]:
+    parameter_ranges[parameter] = (90,25000)
+for parameter in ["Mq1","Mu1","Md1"]:
+    parameter_ranges[parameter] = (200,50000)
+for parameter in ["Mq3","Mu3","Md3"]:
+    parameter_ranges[parameter] = (100,50000)
+for parameter in ["Ab","Al"]: # can be <0
+    parameter_ranges[parameter] = (1,7000)
+parameter_ranges["At"] = (1,7000) # can be <0
 
-#choose in which parameters the space should be sampled with variable step sizes, give minimal step size and stepping profile
-variablesteps = {}
-for parameter in ["mu","M1","M2","M3","Mq1","Mq3","Mu1","Mu3","Md1","Md3","Ml1","Mr1","Ml3","Mr3","Mh3"]:
-    #formula for variable steps: width = max(variablesteps[parameter][0]*width,variablesteps[parameter]*parametervalue)
-    #first value = coefficient on width lower threshold
-    #second value = coefficient for width scaling with parameter value
-    variablesteps[parameter] = [0.2,0.15]
+# signs
+parameter_signs = {}
+for parameter in ["tb","Mh3","M3","Ml1","Mr1","Ml3","Mr3","Mq1","Mu1","Md1","Mq3","Mu3","Md3"]:
+    parameter_signs[parameter] = 1
+for parameter in ["mu","M1","M2","Al","Ab","At"]:
+    parameter_signs[parameter] = np.random.randint(2, size=1)[0]*2 - 1
 
-width_coefficient = 0.1 #the width coefficient of the gaussian for the mcmc step. This coefficient is multiplied by the parameter range to give the width of the gaussian.
+# width coefficient of the gaussian for the mcmc step. 
+# This coefficient is multiplied by the parameter range to give the width of the gaussian.
+width_coefficient = 0.1 
 
+# paths and executables
 homedir = os.getcwd()
 packagedir = homedir+"/packages/"
 spnexe = packagedir+"SPheno-4.0.4/bin/SPheno"
@@ -44,7 +53,6 @@ hsexe =packagedir+"higgssignals/build/HiggsSignals"
 mmgsexe = packagedir+"micromegas_5.2.4/MSSM/main"
 gm2exe = packagedir+"GM2Calc-1.7.3/build/bin/gm2calc.x"
 
-
 #containers for the tree branches. Numpy arrays are used as an interface between python types and the root branches
 tree_branches = {}
 tree_branches["slha_file"]={"container":TString(),"dtype":"TString"}
@@ -52,6 +60,7 @@ tree_branches["likelihood"]= {"container":np.zeros(1,dtype = float),"dtype":"D"}
 tree_branches["iteration_index"] = {"container":np.zeros(1,dtype = int),"dtype":"I"}
 tree_branches["accepted_index"] = {"container":np.zeros(1,dtype = int),"dtype":"I"}
 tree_branches["chain_index"] = {"container":np.zeros(1,dtype = int),"dtype":"I"}
+
 tree_branches["mtop"] = {"container":np.zeros(1,dtype = float),"dtype":"D"}
 tree_branches["mbottom"] = {"container":np.zeros(1,dtype = float),"dtype":"D"}
 tree_branches["alpha_s"] = {"container":np.zeros(1,dtype = float),"dtype":"D"}
@@ -59,76 +68,63 @@ tree_branches["mhiggs"] = {"container":np.zeros(1,dtype = float),"dtype":"D"}
 tree_branches["mW"] = {"container":np.zeros(1,dtype = float),"dtype":"D"}
 for param in parameter_ranges.keys():
     tree_branches[param] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
+
 tree_branches["superiso_chi2_stdout"]={"container":TString(),"dtype":"TString"}
 tree_branches["superiso_stdout"]={"container":TString(),"dtype":"TString"}
+tree_branches["Delta0_B_to_K0star_gamma"] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
+tree_branches["BR_B0_K0star_gamma"] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
+tree_branches["BR_Bs_to_mu_mu"] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
+tree_branches["BR_Bd_to_mu_mu"] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
+#tree_branches["BR_b_to_s_mu_mu"] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
+#tree_branches["BR_b_to_s_e_e"] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
+tree_branches["BR_b_to_s_gamma"] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
 tree_branches["siso_chi2"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
 tree_branches["siso_chi2_ndf"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+
 tree_branches["hb_stdout"]={"container":TString(),"dtype":"TString"}
 tree_branches["hs_stdout"]={"container":TString(),"dtype":"TString"}
+
 tree_branches["gm2calc_stdout"]={"container":TString(),"dtype":"TString"}
 tree_branches["Delta_a_mu_x1E11"]={"container":np.zeros(1,dtype = float),"dtype":"D"}
+
 #tree_branches["omegah2"] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
 #tree_branches["micromegas_stdout"]={"container":TString(),"dtype":"TString"}
 
-
-#sign permutations for the pMSSM electroweak sector
-def get_sign(signchoice):
-    sign_permutation = (0,0,0)#sign_permutation = (sign(mu),sign(M1),sign(M2))
-    if signchoice % 8 ==0:
-        return {"mu":-1,"M1":-1,"M2":-1}
-    if signchoice % 8 ==1:
-        return {"mu":1,"M1":1,"M2":1}
-    if signchoice % 8 ==2:
-        return {"mu":1,"M1":1,"M2":-1}
-    if signchoice % 8 ==3:
-        return {"mu":1,"M1":-1,"M2":1}
-    if signchoice % 8 ==4:
-        return {"mu":1,"M1":-1,"M2":-1}
-    if signchoice % 8 ==5:
-        return {"mu":-1,"M1":1,"M2":1}
-    if signchoice % 8 ==6:
-        return {"mu":-1,"M1":1,"M2":-1}
-    if signchoice % 8 ==7:
-        return {"mu":-1,"M1":-1,"M2":1}
-    
-def generate_point(input_point = {},signchoice = 0):
+def generate_point(input_point = {}):
     """
     @param input_point: if using mode 2, give a dictionary keying the pMSSM parameter values of the previous point in the chain
-    @param signchoice: if using mode 1, give the sign permutation for the electroweak section
     """
     # mode 1: generate point from flat prior
     from_scratch = len(input_point) == 0
-    signs = get_sign(signchoice)
     output_point = {}
     if from_scratch:
         for parameter,parameterrange in parameter_ranges.items():
-            if parameter in signs.keys():#handle signed parameters
-                parametervalue = signs[parameter]*abs(random.uniform(parameterrange[0],parameterrange[1]))
-            else:
-                parametervalue = random.uniform(parameterrange[0],parameterrange[1])                    
+            parametervalue = parameter_signs[parameter]*random.uniform(parameterrange[0],parameterrange[1])
             output_point[parameter] = parametervalue
         output_point["mtop"] = 173.1
         output_point["mbottom"] = 4.18
         output_point["alpha_s"] = 0.1181
+
     else: #mode 2: generate point from previous point
         for parameter,parameterrange in parameter_ranges.items():
             in_range = False
-            if parameterrange[0]<0:
-                width = 0.5*width_coefficient*(parameterrange[1]-parameterrange[0])
-            else:
-                width = width_coefficient*(parameterrange[1]-parameterrange[0])
-            if parameter in variablesteps.keys():#example of variable step size
 
-                width = max(variablesteps[parameter][0]*width,variablesteps[parameter][1]*abs(input_point[parameter]))
+            # constant width, log mean
+            width = width_coefficient*(parameterrange[1]-parameterrange[0])
+            mean = np.sign(input_point[parameter])*np.log(abs(input_point[parameter]))
+
             while not in_range:
-                parametervalue = random.gauss(input_point[parameter],width)
+                parametervalue = random.gauss(mean,width)
                 in_range = parametervalue > parameterrange[0] and parametervalue < parameterrange[1]
 
             output_point[parameter] = parametervalue
+
         output_point["mtop"]= random.gauss(input_point["mtop"],0.9*width_coefficient)
         output_point["mbottom"]= random.gauss(input_point["mbottom"],((0.18+0.04)/2)*width_coefficient)
         output_point["alpha_s"] = random.gauss(input_point["alpha_s"],0.0011*width_coefficient)
+
     output_point["scale"] = sqrt(output_point["Mq3"]*output_point["Mu3"])
+
     return output_point
 
 # SPheno
@@ -145,6 +141,7 @@ def run_feynhiggs(devnull):
     fhin = FeynHiggs output file
     spnin = SPheno output file
     """
+ 
     fhin = "SPheno.spc.fh-001"#again, writing a lot of files to disk
     spnin = "SPheno.spc"
     cmd = " ".join([fhexe,spnin,devnull])
@@ -217,7 +214,6 @@ def run_feynhiggs(devnull):
 #    os.system("rm "+fhin)# clean up
     return True
 
-
 def get_observables(slhapath):
     """
     get the observables from the slha file
@@ -251,6 +247,7 @@ def get_observables(slhapath):
 
     return returndict
 
+# helper function for reading values from superiso output
 def read_superiso_out(search_str,siso_out):
     variable_str = siso_out[siso_out.find(search_str)+len(search_str):]
     variable = float(variable_str[:variable_str.find("\n")].strip())
@@ -267,7 +264,6 @@ def run_superiso(slhapath):
 
     # get the individual observables from stdout
     try:
-
         returndict["Delta0_B_to_K0star_gamma"] = {"value":read_superiso_out("delta0(B->K* gamma)",siso_out)}
         returndict["BR_B0_K0star_gamma"] = {"value":read_superiso_out("BR(B0->K* gamma)",siso_out)}
         returndict["BR_Bs_to_mu_mu"] = {"value":read_superiso_out("BR(Bs->mu mu)",siso_out)}
@@ -281,7 +277,7 @@ def run_superiso(slhapath):
         print siso_out
         print "rejecting candidate point"
         return -1
-#    print siso_out
+
     return returndict
 
 def run_superiso_chi2(slhapath):
@@ -306,7 +302,7 @@ def run_higgssignals(slhapath):
     hs_call = subprocess.Popen(hsexe+" latestresults 1 SLHA 3 1 "+slhapath, stdout=subprocess.PIPE,shell=True)
     hs_out = hs_call.stdout.read()
 
-    print(hs_out)
+#    print(hs_out)
     print("got output hs")
 
     returndict = {"hs_stdout":{"value":hs_out,"special_case":""}}
@@ -338,25 +334,28 @@ def run_higgsbounds(slhapath):
 
 # MicroMegas
 def run_micromegas(slhapath):
+
     print "calling micromegas"
     micromegas_call = subprocess.Popen(mmgsexe+" "+str(slhapath), stdout=subprocess.PIPE,shell=True)
     print "processing micromegas output"
     micromegas_out = micromegas_call.stdout.read()
     print "I got the output! yay! This is it:"
+
     print micromegas_out
+
     #if any of these quantities are used to binarily reject candidate points, micromegas should be run first and terminate if, and as soon as, a rejection criterion is fulfilled
     returndict = {"micromegas_stdout":{"value":micromegas_out,"special_case":""}}
-    ztoinv_excluded = micromegas_out.find("Excluded by Z->invisible") != -1
-    returndict["ztoinv_excluded"] = {"value":ztoinv_excluded,"special_case":""}
-    lep_excluded = micromegas_out.find("Excluded by LEP  by e+,e- -> DM q qbar. Cross section =")!=-1
-    returndict["lep_excluded"] = {"value":lep_excluded,"special_case":""}
-    masslim = micromegas_out.find("MassLimits OK")!=-1
-    returndict["masslim"] = {"value":masslim,"special_case":""}#if true, mass limits are not ok
-    omegah2 = micromegas_out[micromegas_out.find("Omega=")+len("Omega="):]
-    omegah2 = float(omegah2.split("\n")[0].strip())
-    returndict["omegah2"]={"value":omegah2,"special_case":""}
-    omegaxf = float(micromegas_out[micromegas_out.find("Xf=")+len("Xf="):micromegas_out.find("Omega=")].strip())
-    returndict["omegaxf"] = {"value":omegaxf,"special_case":""}
+#    ztoinv_excluded = micromegas_out.find("Excluded by Z->invisible") != -1
+#    returndict["ztoinv_excluded"] = {"value":ztoinv_excluded,"special_case":""}
+#    lep_excluded = micromegas_out.find("Excluded by LEP  by e+,e- -> DM q qbar. Cross section =")!=-1
+#    returndict["lep_excluded"] = {"value":lep_excluded,"special_case":""}
+#    masslim = micromegas_out.find("MassLimits OK")!=-1
+#    returndict["masslim"] = {"value":masslim,"special_case":""}#if true, mass limits are not ok
+#    omegah2 = micromegas_out[micromegas_out.find("Omega=")+len("Omega="):]
+#    omegah2 = float(omegah2.split("\n")[0].strip())
+#    returndict["omegah2"]={"value":omegah2,"special_case":""}
+#    omegaxf = float(micromegas_out[micromegas_out.find("Xf=")+len("Xf="):micromegas_out.find("Omega=")].strip())
+#    returndict["omegaxf"] = {"value":omegaxf,"special_case":""}
     return returndict
 
 # GM2Calc                                                                                  
@@ -476,13 +475,12 @@ def run(arguments):
         setup_tree(outtree)
         tree_branches["chain_index"][0] = chainix
         finite_lh = False
-        signchoice = random.randint(0,7)
         while not finite_lh:
             utils.clean()
             spnerr = False
             while not spnerr:#find a viable point
                 utils.clean()
-                candidate = generate_point(signchoice = signchoice)#generate a point from flat prior
+                candidate = generate_point()#generate a point from flat prior
                 spnin = utils.write_spheno_input(candidate)#write the input for spheno
                 spnerr = run_spheno(spnin,devnull) #run spheno, check if viable point
 
@@ -497,6 +495,7 @@ def run(arguments):
 #            os.system("cp SPheno.spc mmgsin.slha")
 #            mmgs_obs = run_micromegas(slhapath="mmgsin.slha")#micromegas seems to consume the input file?!?!
 #            os.system("mv mmgsin.slha SPheno.spc")
+
             print "getting the stuff from the slha file"
             observables = get_observables(slhapath = "SPheno.spc") #get observables for the likelihood
             siso_obs = run_superiso("SPheno.spc")
@@ -564,6 +563,7 @@ def run(arguments):
                 candidate = generate_point(lastaccepted)#generate a point from the last point
                 spnin = utils.write_spheno_input(candidate)#write the input for spheno
                 spnerr = run_spheno(spnin,devnull) #run spheno, check if viable point
+
             if not run_feynhiggs('>& /dev/null'):#run feynhiggs, replace higgs sector
                 continue
 
