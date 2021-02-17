@@ -1,13 +1,11 @@
 #!/bin/bash
 
-# copy code
-xrdcp root://cmseos.fnal.gov/EOSDIR/pMSSM_McMC.tar.gz .
-
 # set up
 source /cvmfs/sft.cern.ch/lcg/views/LCG_96/x86_64-centos7-gcc8-opt/setup.sh
 
 # copy code
-git clone https://github.com/jennetd/pMSSM_McMC
+xrdcp root://cmseos.fnal.gov/EOSDIR/pMSSM_McMC.tar.gz .
+tar -zxvf pMSSM_McMC.tar.gz
 cd pMSSM_McMC
 
 # compile FeynHiggs
