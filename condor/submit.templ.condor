@@ -1,0 +1,9 @@
+universe = vanilla
+Executable = DIRECTORY/PREFIX.sh
+Should_Transfer_Files = YES
+WhenToTransferOutput = ON_EXIT
+Output = DIRECTORY/PREFIX.stdout
+Error = DIRECTORY/PREFIX.stderr
+Log = DIRECTORY/PREFIX.condor.log
+request_memory = 8000
+Queue 1
