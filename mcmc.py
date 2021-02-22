@@ -461,7 +461,7 @@ def run(arguments):
     move_every = arguments.save_interval
     outdir = arguments.output
     inpath = arguments.input
-    devnull = '>& /dev/null'
+    devnull = '> /dev/null'
 
     lastaccepted = {}
     #select mode, use argparse for this
@@ -484,7 +484,7 @@ def run(arguments):
                 spnin = utils.write_spheno_input(candidate)#write the input for spheno
                 spnerr = run_spheno(spnin,devnull) #run spheno, check if viable point
 
-            if not run_feynhiggs('>& /dev/null'):#run feynhiggs, replace higgs sector
+            if not run_feynhiggs(devnull):#run feynhiggs, replace higgs sector
                 continue
 
             gm2_obs = run_gm2calc(slhapath="SPheno.spc")
@@ -564,7 +564,7 @@ def run(arguments):
                 spnin = utils.write_spheno_input(candidate)#write the input for spheno
                 spnerr = run_spheno(spnin,devnull) #run spheno, check if viable point
 
-            if not run_feynhiggs('>& /dev/null'):#run feynhiggs, replace higgs sector
+            if not run_feynhiggs(devnull):#run feynhiggs, replace higgs sector
                 continue
 
             gm2_obs = run_gm2calc(slhapath="SPheno.spc")
