@@ -245,6 +245,12 @@ def get_observables(slhapath):
         returndict["alpha_s"] = {"value":float(" ".join(sminputs[2].split()).split()[1])}
         returndict["mbottom"] = {"value":float(" ".join(sminputs[4].split()).split()[1])}
 
+        # get higgs signals chi2
+        hsblock = blocks[30]
+        hsinputs = hsblock.split("\n")[1:-1]
+        returndict["hs_chi2"] = {"value":float(" ".join(hsinputs[48].split()).split()[1])}
+        returndict["hs_chi2_ndf"] = {"value":float(" ".join(hsinputs[39].split()).split()[1])}
+        
     return returndict
 
 # helper function for reading values from superiso output
@@ -302,9 +308,6 @@ def run_higgssignals(slhapath):
     hs_call = subprocess.Popen(hsexe+" latestresults 1 SLHA 3 1 "+slhapath, stdout=subprocess.PIPE,shell=True)
     hs_out = hs_call.stdout.read()
 
-#    print(hs_out)
-    print("got output hs")
-
     returndict = {"hs_stdout":{"value":hs_out,"special_case":""}}
     return returndict
     
@@ -313,8 +316,6 @@ def run_higgsbounds(slhapath):
 
     hb_call = subprocess.Popen(hbexe+" LandH SLHA 3 1 "+slhapath, stdout=subprocess.PIPE,shell=True)
     hb_out = hb_call.stdout.read()
-
-    print("got output hb")
 
     returndict = {"hb_stdout":{"value":hb_out,"special_case":""}}
 
