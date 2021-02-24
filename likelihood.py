@@ -75,16 +75,20 @@ def get_likelihood(observables):
     ndf = observables["siso_chi2_ndf"]["value"]
     gamma = math.gamma(float(ndf)/2)
     coeff = pow(chi2,(float(ndf)/2)-1)/((pow(2,float(ndf)/2))*gamma)
-    product_likelihood*= (coeff*math.exp(-chi2/2))
+    product_likelihood *= (coeff*math.exp(-chi2/2))
 
     # higgs signals chi2
     chi2  = observables["hs_chi2"]["value"]
     ndf   = observables["hs_chi2_ndf"]["value"]
     gamma = math.gamma(float(ndf)/2)
     coeff = pow(chi2,(float(ndf)/2)-1)/((pow(2,float(ndf)/2))*gamma)
-    product_likelihood*= (coeff*math.exp(-chi2/2))
+    product_likelihood *= (coeff*math.exp(-chi2/2))
 
     # higgs bounds chi2
+    product_likelihood *= observables["llh_CMS8"]
+    product_likelihood *= observables["llh_CMS13"]
+    product_likelihood *= observables["llh_ATLAS13"]
+    product_likelihood *= observables["llh_ATLAS20"]
     
     return product_likelihood
 
