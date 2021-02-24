@@ -64,8 +64,8 @@ program HBwithLHClikelihood_SLHA
 
     call initialize_HiggsBounds(nH, nHplus, 'onlyH')
 
-    filename_in_8TeV = "../example_data/Mh125/mh125_8.tsv"
-    filename_in_13TeV = "../example_data/Mh125/mh125_13.tsv"
+    filename_in_8TeV = "packages/higgsbounds/example_data/Mh125/mh125_8.tsv"
+    filename_in_13TeV = "packages/higgsbounds/example_data/Mh125/mh125_13.tsv"
     filename_out = "Mh125_HBwithLHClikelihood.dat"
     call system('rm -f Mh125_HBwithLHClikelihood.dat')
 
@@ -111,6 +111,9 @@ program HBwithLHClikelihood_SLHA
 ! Run the standard HiggsBounds routine considering all analyses
             call run_HiggsBounds(HBresult_all, chan_all, obsratio_all, ncombined_all)
 
+!This will add the block HiggsBoundsResults to the SLHA file
+            call HiggsBounds_SLHA_output            
+            
 ! Deactivate current CMS and ATLAS searches for non-standard Higgs to tautau
             call HiggsBounds_deactivate_analyses((/14029, 2014049, 20140492, 170907242, 200212223/))
 ! Standard HiggsBounds run (gives 95% CL limit):
@@ -171,4 +174,7 @@ program HBwithLHClikelihood_SLHA
     close (434)
 
     call finish_HiggsBounds
+    deallocate (dmhneut, dmhch)
+
 end program HBwithLHClikelihood_SLHA
+  

@@ -49,6 +49,7 @@ sisoexe = packagedir+"superiso_v4.0/slha.x"
 #sisochi2exe = packagedir+"superiso_v4.0/slha_chi2.x" #use all of the non-controversial low-energy results in superiso chi2 calculation. takes approximately 20s/call
 sisochi2exe = packagedir+"superiso_v4.0/slha_chi2_reduced.x"#use only branching ratios in superiso chi2. takes approximately 8s/call
 hbexe = packagedir+"higgsbounds/build/HiggsBounds"
+hbchi2exe = packagedir+"higgsbounds/build/example_programs/HBwithLHClikelihood_SLHA"
 hsexe =packagedir+"higgssignals/build/HiggsSignals"
 mmgsexe = packagedir+"micromegas_5.2.4/MSSM/main"
 gm2exe = packagedir+"GM2Calc-1.7.3/build/bin/gm2calc.x"
@@ -245,11 +246,14 @@ def get_observables(slhapath):
         returndict["alpha_s"] = {"value":float(" ".join(sminputs[2].split()).split()[1])}
         returndict["mbottom"] = {"value":float(" ".join(sminputs[4].split()).split()[1])}
 
+        # get higgs bounds exclusions
+        
         # get higgs signals chi2
         hsblock = blocks[30]
         hsinputs = hsblock.split("\n")[1:-1]
         returndict["hs_chi2"] = {"value":float(" ".join(hsinputs[48].split()).split()[1])}
         returndict["hs_chi2_ndf"] = {"value":float(" ".join(hsinputs[39].split()).split()[1])}
+
         
     return returndict
 
@@ -316,21 +320,37 @@ def run_higgsbounds(slhapath):
 
     hb_call = subprocess.Popen(hbexe+" LandH SLHA 3 1 "+slhapath, stdout=subprocess.PIPE,shell=True)
     hb_out = hb_call.stdout.read()
-
+    
     returndict = {"hb_stdout":{"value":hb_out,"special_case":""}}
+    return returndict
 
-#    try:
-#        blocks = gm2_out.split("Block")
-#        gm2_str = blocks[-1].split()[2]
-#        gm2_unc_str = blocks[-1].split()[6]
-#        returndict["Dgm2_muon_x1E10"] = {"value":float(gm2_str)*pow(10,10),"uncertainty":float(gm2_unc_str)*pow(10,10)}
+def run_higgsbounds_chi2(slhapath):
 
-#    except:
-#        print "something went wrong with siso call, printing output"
-#        print gm2_out
-#        print "rejecting candidate point"
-#        return -1
+    os.system("ln -s "+slhapath+" "+slhapath+".1")
+    hb_call = subprocess.Popen(hbchi2exe+" 1 "+slhapath, stdout=subprocess.PIPE,shell=True)
+    hb_out = hb_call.stdout.read()
+    
+    returndict = {"hb_chi2_stdout":{"value":hb_out,"special_case":""}}
 
+    with open("Mh125_HBwithLHClikelihood.dat", "r") as hb_outfile:
+         content = hb_outfile.read().split()
+
+    try:
+        print(content[12:])
+        returndict["llh_CMS8"] = content[12]
+        returndict["llh_exp_CMS8"] = content[13]
+        returndict["llh_CMS13"] = content[14]
+        returndict["llh_exp_CMS13"] = content[15]
+        returndict["llh_ATLAS13"] = content[16]
+        returndict["llh_exp_ATLAS13"] = content[17]
+        returndict["llh_ATLAS20"] = content[18]
+        returndict["llh_exp_ATLAS20"] = content[19]
+    except:
+        print "something went wrong with higgsbounds chi2 call, printing output"
+        print hb_out
+        print "rejecting candidate point"
+        return -1
+                            
     return returndict
 
 # MicroMegas
@@ -490,7 +510,8 @@ def run(arguments):
 
             gm2_obs = run_gm2calc(slhapath="SPheno.spc")
 
-            hb_obs = run_higgsbounds(slhapath="SPheno.spc")
+#            hb_obs = run_higgsbounds(slhapath="SPheno.spc")
+            hb_chi2_obs = run_higgsbounds_chi2(slhapath="SPheno.spc")
             hs_obs = run_higgssignals(slhapath="SPheno.spc")
 
 #            os.system("cp SPheno.spc mmgsin.slha")
@@ -570,7 +591,8 @@ def run(arguments):
 
             gm2_obs = run_gm2calc(slhapath="SPheno.spc")
 
-            hb_obs = run_higgsbounds(slhapath="SPheno.spc")
+#            hb_obs = run_higgsbounds(slhapath="SPheno.spc")
+            hb_chi2_obs = run_higgsbounds_chi2(slhapath="SPheno.spc")
             hs_obs = run_higgssignals(slhapath="SPheno.spc")
 
 #            os.system("cp SPheno.spc mmgsin.slha")
