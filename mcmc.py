@@ -94,15 +94,12 @@ tree_branches["hb_ch4_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"
 
 tree_branches["hb_chi2_stdout"]={"container":TString(),"dtype":"TString"}
 tree_branches["llh_CMS8"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
-tree_branches["llh_exp_CMS8"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
 tree_branches["llh_CMS13"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
-tree_branches["llh_exp_CMS13"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
-tree_branches["llh_ATLAS13"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
-tree_branches["llh_exp_ATLAS13"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
 tree_branches["llh_ATLAS20"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
-tree_branches["llh_exp_ATLAS20"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
 
 tree_branches["hs_stdout"]={"container":TString(),"dtype":"TString"}
+tree_branches["hs_chi2"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
+tree_branches["hs_chi2_ndf"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
 
 tree_branches["gm2calc_stdout"]={"container":TString(),"dtype":"TString"}
 tree_branches["Delta_a_mu_x1E11"]={"container":np.zeros(1,dtype = float),"dtype":"D"}
@@ -379,19 +376,16 @@ def run_higgsbounds_chi2(slhapath):
 
     try:
         returndict["llh_CMS8"]        = {"value":float(content[12]),"special_case":""}
-        returndict["llh_exp_CMS8"]    = {"value":float(content[13]),"special_case":""}
         returndict["llh_CMS13"]       = {"value":float(content[14]),"special_case":""}
-        returndict["llh_exp_CMS13"]   = {"value":float(content[15]),"special_case":""}
-        returndict["llh_ATLAS13"]     = {"value":float(content[16]),"special_case":""}
-        returndict["llh_exp_ATLAS13"] = {"value":float(content[17]),"special_case":""}
         returndict["llh_ATLAS20"]     = {"value":float(content[18]),"special_case":""}
-        returndict["llh_exp_ATLAS20"] = {"value":float(content[19]),"special_case":""}
     except:
         print "something went wrong with higgsbounds chi2 call, printing output"
         print hb_out
         print "rejecting candidate point"
         return -1
-                            
+
+    print(returndict["llh_CMS8"]["value"],returndict["llh_CMS13"]["value"],returndict["llh_ATLAS20"]["value"])
+    
     return returndict
 
 # MicroMegas
