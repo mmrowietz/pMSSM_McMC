@@ -42,7 +42,7 @@ width_coefficient = .01
 base = np.e
 
 # paths and executables
-homedir = os.getcwd()
+homedir = "/pMSSM_McMC"
 packagedir = homedir+"/packages/"
 spnexe = packagedir+"SPheno-4.0.4/bin/SPheno"
 fhexe = packagedir+"FeynHiggs-2.16.1/x86_64-Linux/bin/FeynHiggs"
