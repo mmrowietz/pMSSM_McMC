@@ -126,7 +126,7 @@ def generate_point(input_point = {}):
 
     else: #mode 2: generate point from previous point
 
-        parameterrange["At"][1] = sqrt(input_point["Mq3"]*input_point["Mu3"])
+        parameter_ranges["At"] = (1,sqrt(input_point["Mq3"]*input_point["Mu3"]))
     
         for parameter,parameterrange in parameter_ranges.items():
             in_range = False
