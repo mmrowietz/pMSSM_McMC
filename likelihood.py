@@ -4,15 +4,17 @@ import math
 
 likelihood_contributions ={}
 
-
 #https://pdg.lbl.gov/2019/tables/rpp2019-sum-quarks.pdf                                                        
 likelihood_contributions["mtop"] = {"value":173.1,"uncertainty":0.9}
 likelihood_contributions["mbottom"] = {"value":4.18,"uncertainty":[0.02,0.03]}
 likelihood_contributions["alpha_s"] = {"value":0.1181,"uncertainty":0.0011}
 
 # From FeynHiggs
+
+#NB: including mhiggs here is redundant with HiggsSignals chi2
 #https://pdg.lbl.gov/2020/listings/rpp2020-list-higgs-boson.pdf
-likelihood_contributions["mhiggs"] = {"value":125.10,"uncertainty":0.14}
+#likelihood_contributions["mhiggs"] = {"value":125.10,"uncertainty":0.14}
+
 #https://pdg.lbl.gov/2019/listings/rpp2019-list-w-boson.pdf
 likelihood_contributions["mW"] = {"value":80.379,"uncertainty":0.012}
 
@@ -82,7 +84,7 @@ def get_likelihood(observables):
     ndf   = observables["hs_chi2_ndf"]["value"]
     gamma = math.gamma(float(ndf)/2)
     coeff = pow(chi2,(float(ndf)/2)-1)/((pow(2,float(ndf)/2))*gamma)
-#    product_likelihood *= (coeff*math.exp(-chi2/2))
+    product_likelihood *= (coeff*math.exp(-chi2/2))
 
     # higgs bounds chi2
 #    product_likelihood *= observables["llh_CMS8"]["value"]

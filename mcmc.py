@@ -38,7 +38,8 @@ for parameter in ["mu","M1","M2","Al","Ab","At"]:
 
 # width coefficient of the gaussian for the mcmc step. 
 # This coefficient is multiplied by the parameter range to give the width of the gaussian.
-width_coefficient = 0.1 
+width_coefficient = .01
+base = np.e
 
 # paths and executables
 homedir = os.getcwd()
@@ -83,14 +84,14 @@ tree_branches["siso_chi2"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
 tree_branches["siso_chi2_ndf"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
 
 tree_branches["hb_stdout"]={"container":TString(),"dtype":"TString"}
-tree_branches["hb_ch1"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
-tree_branches["hb_ch1_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
-tree_branches["hb_ch2"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
-tree_branches["hb_ch2_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
-tree_branches["hb_ch3"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
-tree_branches["hb_ch3_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
-tree_branches["hb_ch4"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
-tree_branches["hb_ch4_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+#tree_branches["hb_ch1"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+#tree_branches["hb_ch1_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+#tree_branches["hb_ch2"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+#tree_branches["hb_ch2_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+#tree_branches["hb_ch3"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+#tree_branches["hb_ch3_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+#tree_branches["hb_ch4"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+#tree_branches["hb_ch4_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
 
 tree_branches["hb_chi2_stdout"]={"container":TString(),"dtype":"TString"}
 tree_branches["llh_CMS8"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
@@ -114,6 +115,7 @@ def generate_point(input_point = {}):
     # mode 1: generate point from flat prior
     from_scratch = len(input_point) == 0
     output_point = {}
+
     if from_scratch:
         for parameter,parameterrange in parameter_ranges.items():
             parametervalue = parameter_signs[parameter]*random.uniform(parameterrange[0],parameterrange[1])
@@ -123,19 +125,22 @@ def generate_point(input_point = {}):
         output_point["alpha_s"] = 0.1181
 
     else: #mode 2: generate point from previous point
+
+        parameterrange["At"][1] = sqrt(input_point["Mq3"]*input_point["Mu3"])
+    
         for parameter,parameterrange in parameter_ranges.items():
             in_range = False
 
             # constant width, log mean
-            width = width_coefficient*(parameterrange[1]-parameterrange[0])
-            mean = np.sign(input_point[parameter])*np.log(abs(input_point[parameter]))
-
+            width = log(width_coefficient*(parameterrange[1]-parameterrange[0]),base)
+            mean = log(abs(input_point[parameter]),base)
+            
             while not in_range:
-                parametervalue = random.gauss(mean,width)
+                parametervalue = pow(base,random.gauss(mean,width))                
                 in_range = parametervalue > parameterrange[0] and parametervalue < parameterrange[1]
-
-            output_point[parameter] = parametervalue
-
+                
+            output_point[parameter] = np.sign(input_point[parameter])*parametervalue
+            
         output_point["mtop"]= random.gauss(input_point["mtop"],0.9*width_coefficient)
         output_point["mbottom"]= random.gauss(input_point["mbottom"],((0.18+0.04)/2)*width_coefficient)
         output_point["alpha_s"] = random.gauss(input_point["alpha_s"],0.0011*width_coefficient)
@@ -267,26 +272,26 @@ def get_observables(slhapath):
         hbblock = hbblock.split("(rank = 0: global result)")[-1]
         hbinputs = hbblock.split("\n")[1:-1]
         
-        try:
-            returndict["hb_ch1"] = {"value":int(hbinputs[0].split()[2]),"special_case":""}
-            returndict["hb_ch1_exclusion"] = {"value":int(hbinputs[1].split()[2]),"special_case":""}
-            returndict["hb_ch2"] = {"value":int(hbinputs[5].split()[2]),"special_case":""}
-            returndict["hb_ch2_exclusion"] = {"value":int(hbinputs[6].split()[2]),"special_case":""}
-            returndict["hb_ch3"] = {"value":int(hbinputs[10].split()[2]),"special_case":""}
-            returndict["hb_ch3_exclusion"] = {"value":int(hbinputs[11].split()[2]),"special_case":""}
-            returndict["hb_ch4"] = {"value":int(hbinputs[15].split()[2]),"special_case":""}
-            returndict["hb_ch4_exclusion"] = {"value":int(hbinputs[16].split()[2]),"special_case":""}
+#        try:
+#            returndict["hb_ch1"] = {"value":int(hbinputs[0].split()[2]),"special_case":""}
+#            returndict["hb_ch1_exclusion"] = {"value":int(hbinputs[1].split()[2]),"special_case":""}
+#            returndict["hb_ch2"] = {"value":int(hbinputs[5].split()[2]),"special_case":""}
+#            returndict["hb_ch2_exclusion"] = {"value":int(hbinputs[6].split()[2]),"special_case":""}
+#            returndict["hb_ch3"] = {"value":int(hbinputs[10].split()[2]),"special_case":""}
+#            returndict["hb_ch3_exclusion"] = {"value":int(hbinputs[11].split()[2]),"special_case":""}
+#            returndict["hb_ch4"] = {"value":int(hbinputs[15].split()[2]),"special_case":""}
+#            returndict["hb_ch4_exclusion"] = {"value":int(hbinputs[16].split()[2]),"special_case":""}
 
-        except:
-            print("Problem getting exclusions from HiggsBounds")
-            returndict["hb_ch1"] = {"value":-1,"special_case":""}
-            returndict["hb_ch1_exclusion"] = {"value":-1,"special_case":""}
-            returndict["hb_ch2"] = {"value":-1,"special_case":""}
-            returndict["hb_ch2_exclusion"] = {"value":-1,"special_case":""}
-            returndict["hb_ch3"] = {"value":-1,"special_case":""}
-            returndict["hb_ch3_exclusion"] = {"value":-1,"special_case":""}
-            returndict["hb_ch4"] = {"value":-1,"special_case":""}
-            returndict["hb_ch4_exclusion"] = {"value":-1,"special_case":""}
+#        except:
+#            print("Problem getting exclusions from HiggsBounds")
+#            returndict["hb_ch1"] = {"value":-1,"special_case":""}
+#            returndict["hb_ch1_exclusion"] = {"value":-1,"special_case":""}
+#            returndict["hb_ch2"] = {"value":-1,"special_case":""}
+#            returndict["hb_ch2_exclusion"] = {"value":-1,"special_case":""}
+#            returndict["hb_ch3"] = {"value":-1,"special_case":""}
+#            returndict["hb_ch3_exclusion"] = {"value":-1,"special_case":""}
+#            returndict["hb_ch4"] = {"value":-1,"special_case":""}
+#            returndict["hb_ch4_exclusion"] = {"value":-1,"special_case":""}
 
         # get higgs signals chi2
         hsblock = blocks[30]
