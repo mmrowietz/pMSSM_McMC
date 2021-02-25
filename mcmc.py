@@ -389,7 +389,7 @@ def run_higgsbounds_chi2(slhapath):
         print "rejecting candidate point"
         return -1
 
-    print(returndict["llh_CMS8"]["value"],returndict["llh_CMS13"]["value"],returndict["llh_ATLAS20"]["value"])
+#    print(returndict["llh_CMS8"]["value"],returndict["llh_CMS13"]["value"],returndict["llh_ATLAS20"]["value"])
     
     return returndict
 
