@@ -83,7 +83,7 @@ tree_branches["BR_b_to_s_gamma"] = {"container":np.zeros(1,dtype=float),"dtype":
 tree_branches["siso_chi2"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
 tree_branches["siso_chi2_ndf"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
 
-tree_branches["hb_stdout"]={"container":TString(),"dtype":"TString"}
+#tree_branches["hb_stdout"]={"container":TString(),"dtype":"TString"}
 #tree_branches["hb_ch1"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
 #tree_branches["hb_ch1_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
 #tree_branches["hb_ch2"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
@@ -93,17 +93,17 @@ tree_branches["hb_stdout"]={"container":TString(),"dtype":"TString"}
 #tree_branches["hb_ch4"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
 #tree_branches["hb_ch4_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
 
-tree_branches["hb_chi2_stdout"]={"container":TString(),"dtype":"TString"}
-tree_branches["llh_CMS8"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
-tree_branches["llh_CMS13"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
-tree_branches["llh_ATLAS20"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
+#tree_branches["hb_chi2_stdout"]={"container":TString(),"dtype":"TString"}
+#tree_branches["llh_CMS8"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
+#tree_branches["llh_CMS13"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
+#tree_branches["llh_ATLAS20"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
 
-tree_branches["hs_stdout"]={"container":TString(),"dtype":"TString"}
-tree_branches["hs_chi2"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
-tree_branches["hs_chi2_ndf"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+#tree_branches["hs_stdout"]={"container":TString(),"dtype":"TString"}
+#tree_branches["hs_chi2"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
+#tree_branches["hs_chi2_ndf"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
 
-tree_branches["gm2calc_stdout"]={"container":TString(),"dtype":"TString"}
-tree_branches["Delta_a_mu_x1E11"]={"container":np.zeros(1,dtype = float),"dtype":"D"}
+#tree_branches["gm2calc_stdout"]={"container":TString(),"dtype":"TString"}
+#tree_branches["Delta_a_mu_x1E11"]={"container":np.zeros(1,dtype = float),"dtype":"D"}
 
 #tree_branches["omegah2"] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
 #tree_branches["micromegas_stdout"]={"container":TString(),"dtype":"TString"}
@@ -268,9 +268,9 @@ def get_observables(slhapath):
         returndict["mbottom"] = {"value":float(" ".join(sminputs[4].split()).split()[1])}
 
         # get higgs bounds exclusions
-        hbblock = blocks[30]
-        hbblock = hbblock.split("(rank = 0: global result)")[-1]
-        hbinputs = hbblock.split("\n")[1:-1]
+#        hbblock = blocks[30]
+#        hbblock = hbblock.split("(rank = 0: global result)")[-1]
+#        hbinputs = hbblock.split("\n")[1:-1]
         
 #        try:
 #            returndict["hb_ch1"] = {"value":int(hbinputs[0].split()[2]),"special_case":""}
@@ -294,10 +294,10 @@ def get_observables(slhapath):
 #            returndict["hb_ch4_exclusion"] = {"value":-1,"special_case":""}
 
         # get higgs signals chi2
-        hsblock = blocks[30]
-        hsinputs = hsblock.split("\n")[1:-1]
-        returndict["hs_chi2"] = {"value":float(" ".join(hsinputs[48].split()).split()[1]),"special_case":""}
-        returndict["hs_chi2_ndf"] = {"value":float(" ".join(hsinputs[39].split()).split()[1]),"special_case":""}
+#        hsblock = blocks[30]
+#        hsinputs = hsblock.split("\n")[1:-1]
+#        returndict["hs_chi2"] = {"value":float(" ".join(hsinputs[48].split()).split()[1]),"special_case":""}
+#        returndict["hs_chi2_ndf"] = {"value":float(" ".join(hsinputs[39].split()).split()[1]),"special_case":""}
         
     return returndict
 
@@ -551,8 +551,8 @@ def run(arguments):
             gm2_obs = run_gm2calc(slhapath="SPheno.spc")
 
 #            hb_obs = run_higgsbounds(slhapath="SPheno.spc")
-            hb_obs = run_higgsbounds_chi2(slhapath="SPheno.spc")
-            hs_obs = run_higgssignals(slhapath="SPheno.spc")
+#            hb_obs = run_higgsbounds_chi2(slhapath="SPheno.spc")
+#            hs_obs = run_higgssignals(slhapath="SPheno.spc")
 
 #            os.system("cp SPheno.spc mmgsin.slha")
 #            mmgs_obs = run_micromegas(slhapath="mmgsin.slha")#micromegas seems to consume the input file?!?!
@@ -570,10 +570,10 @@ def run(arguments):
                 observables[obs] = siso_chi2_obs[obs]
             for obs in gm2_obs:
                 observables[obs] = gm2_obs[obs]
-            for obs in hb_obs:
-                observables[obs] = hb_obs[obs]
-                #            for obs in mmgs_obs:
-                #                observables[obs] = mmgs_obs[obs]
+#            for obs in hb_obs:
+#                observables[obs] = hb_obs[obs]
+#            for obs in mmgs_obs:
+#                observables[obs] = mmgs_obs[obs]
 
             _l = likelihood.get_likelihood(observables)#get likelihood
             finite_lh = _l != 0
@@ -634,8 +634,8 @@ def run(arguments):
             gm2_obs = run_gm2calc(slhapath="SPheno.spc")
 
 #            hb_obs = run_higgsbounds(slhapath="SPheno.spc")
-            hb_obs = run_higgsbounds_chi2(slhapath="SPheno.spc")
-            hs_obs = run_higgssignals(slhapath="SPheno.spc")
+#            hb_obs = run_higgsbounds_chi2(slhapath="SPheno.spc")
+#            hs_obs = run_higgssignals(slhapath="SPheno.spc")
 
 #            os.system("cp SPheno.spc mmgsin.slha")
 #            mmgs_obs = run_micromegas(slhapath="mmgsin.slha")
@@ -652,8 +652,8 @@ def run(arguments):
                 observables[obs] = siso_chi2_obs[obs]
             for obs in gm2_obs:
                 observables[obs] = gm2_obs[obs]
-            for obs in hb_obs:
-                observables[obs] = hb_obs[obs]
+#            for obs in hb_obs:
+#                observables[obs] = hb_obs[obs]
                 
 #            for obs in mmgs_obs:
 #                observables[obs] = mmgs_obs[obs]
