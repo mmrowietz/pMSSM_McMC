@@ -10,6 +10,8 @@ import utils
 import likelihood
 import subprocess
 
+from datetime import datetime
+
 # set up the parameter ranges 
 # positive definite only: signs dealt with below
 parameter_ranges ={}
@@ -38,7 +40,7 @@ for parameter in ["mu","M1","M2","Al","Ab","At"]:
 
 # width coefficient of the gaussian for the mcmc step. 
 # This coefficient is multiplied by the parameter range to give the width of the gaussian.
-width_coefficient = .01
+width_coefficient = .1
 base = np.e
 
 # paths and executables
@@ -49,9 +51,9 @@ fhexe = packagedir+"FeynHiggs-2.16.1/x86_64-Linux/bin/FeynHiggs"
 sisoexe = packagedir+"superiso_v4.0/slha.x"
 #sisochi2exe = packagedir+"superiso_v4.0/slha_chi2.x" #use all of the non-controversial low-energy results in superiso chi2 calculation. takes approximately 20s/call
 sisochi2exe = packagedir+"superiso_v4.0/slha_chi2_reduced.x"#use only branching ratios in superiso chi2. takes approximately 8s/call
-hbexe = packagedir+"higgsbounds/build/HiggsBounds"
-hbchi2exe = packagedir+"higgsbounds/build/example_programs/HBwithLHClikelihood_SLHA"
-hsexe =packagedir+"higgssignals/build/HiggsSignals"
+hbexe = "./packages/higgsbounds/build/HiggsBounds"
+hbchi2exe = "./packages/higgsbounds/build/example_programs/HBwithLHClikelihood_SLHA"
+hsexe ="./packages/higgssignals/build/HiggsSignals"
 mmgsexe = packagedir+"micromegas_5.2.4/MSSM/main"
 gm2exe = packagedir+"GM2Calc-1.7.3/build/bin/gm2calc.x"
 
@@ -93,17 +95,17 @@ tree_branches["siso_chi2_ndf"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
 #tree_branches["hb_ch4"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
 #tree_branches["hb_ch4_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
 
-#tree_branches["hb_chi2_stdout"]={"container":TString(),"dtype":"TString"}
-#tree_branches["llh_CMS8"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
-#tree_branches["llh_CMS13"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
-#tree_branches["llh_ATLAS20"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
+tree_branches["hb_chi2_stdout"]={"container":TString(),"dtype":"TString"}
+tree_branches["llh_CMS8"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
+tree_branches["llh_CMS13"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
+tree_branches["llh_ATLAS20"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
 
-#tree_branches["hs_stdout"]={"container":TString(),"dtype":"TString"}
-#tree_branches["hs_chi2"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
-#tree_branches["hs_chi2_ndf"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+tree_branches["hs_stdout"]={"container":TString(),"dtype":"TString"}
+tree_branches["hs_chi2"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
+tree_branches["hs_chi2_ndf"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
 
-#tree_branches["gm2calc_stdout"]={"container":TString(),"dtype":"TString"}
-#tree_branches["Delta_a_mu_x1E11"]={"container":np.zeros(1,dtype = float),"dtype":"D"}
+tree_branches["gm2calc_stdout"]={"container":TString(),"dtype":"TString"}
+tree_branches["Delta_a_mu_x1E11"]={"container":np.zeros(1,dtype = float),"dtype":"D"}
 
 #tree_branches["omegah2"] = {"container":np.zeros(1,dtype=float),"dtype":"D"}
 #tree_branches["micromegas_stdout"]={"container":TString(),"dtype":"TString"}
@@ -151,8 +153,14 @@ def generate_point(input_point = {}):
 
 # SPheno
 def run_spheno(inpath,devnull):
+
     cmd = " ".join([spnexe,inpath,devnull])
+
+#    t1 = datetime.now()
+#    print("Run SPheno")
     os.system(cmd)
+#    print(datetime.now()-t1)
+    
     error = open("Messages.out","r").read()
     return len(error) == 0
 
@@ -167,7 +175,12 @@ def run_feynhiggs(devnull):
     fhin = "SPheno.spc.fh-001"#again, writing a lot of files to disk
     spnin = "SPheno.spc"
     cmd = " ".join([fhexe,spnin,devnull])
+
+    t1 = datetime.now()
+    print("Run FeynHiggs")
     os.system(cmd)# run FeynHiggs
+    print(datetime.now()-t1)
+
     if not os.path.exists(fhin):#check to see whether FeynHiggs produced an output
         print "could not find Feynhiggs output, skipping point"
         return False
@@ -294,10 +307,10 @@ def get_observables(slhapath):
 #            returndict["hb_ch4_exclusion"] = {"value":-1,"special_case":""}
 
         # get higgs signals chi2
-#        hsblock = blocks[30]
-#        hsinputs = hsblock.split("\n")[1:-1]
-#        returndict["hs_chi2"] = {"value":float(" ".join(hsinputs[48].split()).split()[1]),"special_case":""}
-#        returndict["hs_chi2_ndf"] = {"value":float(" ".join(hsinputs[39].split()).split()[1]),"special_case":""}
+        hsblock = blocks[30]
+        hsinputs = hsblock.split("\n")[1:-1]
+        returndict["hs_chi2"] = {"value":float(" ".join(hsinputs[48].split()).split()[1]),"special_case":""}
+        returndict["hs_chi2_ndf"] = {"value":float(" ".join(hsinputs[39].split()).split()[1]),"special_case":""}
         
     return returndict
 
@@ -309,8 +322,13 @@ def read_superiso_out(search_str,siso_out):
 
 # superiso
 def run_superiso(slhapath):
+
+    t1 = datetime.now()
+    print("Run superiso")
     siso_call = subprocess.Popen([sisoexe,str(slhapath)], stdout=subprocess.PIPE)
     siso_out = siso_call.stdout.read()
+    print(datetime.now()-t1)
+
     if len(siso_out)<10:
         print "something went wrong with siso call!"
 #        print siso_out
@@ -335,8 +353,13 @@ def run_superiso(slhapath):
     return returndict
 
 def run_superiso_chi2(slhapath):
+
+    t1 = datetime.now()
+    print("Run superiso chi2")
     siso_chi2_call = subprocess.Popen([sisochi2exe,str(slhapath)], stdout=subprocess.PIPE)
     siso_chi2_out = siso_chi2_call.stdout.read()
+    print(datetime.now()-t1)
+
     if len(siso_chi2_out)<10:
         print "something went wrong with siso chi2 call!"
         print siso_chi2_out
@@ -353,17 +376,24 @@ def run_superiso_chi2(slhapath):
 
 # HiggsSignals
 def run_higgssignals(slhapath):
+
+    t1 = datetime.now()
+    print("Run HiggsSignals")
     hs_call = subprocess.Popen(hsexe+" latestresults 1 SLHA 3 1 "+slhapath, stdout=subprocess.PIPE,shell=True)
     hs_out = hs_call.stdout.read()
-
+    print(datetime.now()-t1)
+    
     returndict = {"hs_stdout":{"value":hs_out,"special_case":""}}
     return returndict
     
 # HiggsBounds
 def run_higgsbounds(slhapath):
 
+    t1 = datetime.now()
+    print("Run HiggsBounds")
     hb_call = subprocess.Popen(hbexe+" LandH SLHA 3 1 "+slhapath, stdout=subprocess.PIPE,shell=True)
     hb_out = hb_call.stdout.read()
+    print(datetime.now()-t1)
     
     returndict = {"hb_stdout":{"value":hb_out,"special_case":""}}
     return returndict
@@ -371,8 +401,12 @@ def run_higgsbounds(slhapath):
 def run_higgsbounds_chi2(slhapath):
 
     os.system("ln -s "+slhapath+" "+slhapath+".1")
+
+    t1 = datetime.now()
+    print("Run HiggsBounds chi2")
     hb_call = subprocess.Popen(hbchi2exe+" 1 "+slhapath, stdout=subprocess.PIPE,shell=True)
     hb_out = hb_call.stdout.read()
+    print(datetime.now()-t1)
     
     returndict = {"hb_chi2_stdout":{"value":hb_out,"special_case":""}}
 
@@ -396,10 +430,12 @@ def run_higgsbounds_chi2(slhapath):
 # MicroMegas
 def run_micromegas(slhapath):
 
-    print "calling micromegas"
+    t1 = datetime.now()
+    print("Run micromegas")
     micromegas_call = subprocess.Popen(mmgsexe+" "+str(slhapath), stdout=subprocess.PIPE,shell=True)
-    print "processing micromegas output"
     micromegas_out = micromegas_call.stdout.read()
+    print(datetime.now()-t1)
+
     print "I got the output! yay! This is it:"
 
     print micromegas_out
@@ -432,9 +468,12 @@ def run_gm2calc(slhapath):
         file_object.write("     4     0     # verbose output (0 or 1) \n")
         file_object.write("     5     1     # calculate uncertainty \n")
 
+    t1 = datetime.now()
+    print("Run GM2Calc")
     gm2_call = subprocess.Popen(gm2exe+" --slha-input-file="+str(slhapath), stdout=subprocess.PIPE,shell=True)
     gm2_out = gm2_call.stdout.read()
-
+    print(datetime.now()-t1)
+    
     returndict = {"gm2calc_stdout":{"value":gm2_out,"special_case":""}}
 
     try:
@@ -551,8 +590,8 @@ def run(arguments):
             gm2_obs = run_gm2calc(slhapath="SPheno.spc")
 
 #            hb_obs = run_higgsbounds(slhapath="SPheno.spc")
-#            hb_obs = run_higgsbounds_chi2(slhapath="SPheno.spc")
-#            hs_obs = run_higgssignals(slhapath="SPheno.spc")
+            hb_obs = run_higgsbounds_chi2(slhapath="SPheno.spc")
+            hs_obs = run_higgssignals(slhapath="SPheno.spc")
 
 #            os.system("cp SPheno.spc mmgsin.slha")
 #            mmgs_obs = run_micromegas(slhapath="mmgsin.slha")#micromegas seems to consume the input file?!?!
@@ -570,8 +609,8 @@ def run(arguments):
                 observables[obs] = siso_chi2_obs[obs]
             for obs in gm2_obs:
                 observables[obs] = gm2_obs[obs]
-#            for obs in hb_obs:
-#                observables[obs] = hb_obs[obs]
+            for obs in hb_obs:
+                observables[obs] = hb_obs[obs]
 #            for obs in mmgs_obs:
 #                observables[obs] = mmgs_obs[obs]
 
@@ -586,7 +625,6 @@ def run(arguments):
         for obs in observables.keys():
             lastaccepted[obs] = observables[obs]["value"]
 
-#        print(type(observables["Delta_a_mu_x1E11"]["value"]))
         lastaccepted = prepare_fill(lastaccepted,outtree)#add the rest of the point info, fill the tree branches
         outtree.Fill()
 
@@ -622,20 +660,23 @@ def run(arguments):
         while not finite_lh:
             utils.clean()
             spnerr = False
+            n_spnerr = 0
             while not spnerr:#find a viable point
+                n_spnerr += 1
                 utils.clean()
                 candidate = generate_point(lastaccepted)#generate a point from the last point
                 spnin = utils.write_spheno_input(candidate)#write the input for spheno
                 spnerr = run_spheno(spnin,devnull) #run spheno, check if viable point
 
+            print("SPheno errs:",n_spnerr)
             if not run_feynhiggs(devnull):#run feynhiggs, replace higgs sector
                 continue
 
             gm2_obs = run_gm2calc(slhapath="SPheno.spc")
 
 #            hb_obs = run_higgsbounds(slhapath="SPheno.spc")
-#            hb_obs = run_higgsbounds_chi2(slhapath="SPheno.spc")
-#            hs_obs = run_higgssignals(slhapath="SPheno.spc")
+            hb_obs = run_higgsbounds_chi2(slhapath="SPheno.spc")
+            hs_obs = run_higgssignals(slhapath="SPheno.spc")
 
 #            os.system("cp SPheno.spc mmgsin.slha")
 #            mmgs_obs = run_micromegas(slhapath="mmgsin.slha")
@@ -652,9 +693,8 @@ def run(arguments):
                 observables[obs] = siso_chi2_obs[obs]
             for obs in gm2_obs:
                 observables[obs] = gm2_obs[obs]
-#            for obs in hb_obs:
-#                observables[obs] = hb_obs[obs]
-                
+            for obs in hb_obs:
+                observables[obs] = hb_obs[obs]                
 #            for obs in mmgs_obs:
 #                observables[obs] = mmgs_obs[obs]
 
