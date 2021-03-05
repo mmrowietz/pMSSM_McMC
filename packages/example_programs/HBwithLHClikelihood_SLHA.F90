@@ -146,19 +146,17 @@ program HBwithLHClikelihood_SLHA
             call HiggsBounds_get_likelihood(17020, Hindex, nc, cbin, M_av, llh_CMS13, 'obs')
 
 ! Get expected/predicted likelihood
-            call HiggsBounds_get_likelihood(170907242, Hindex, nc, cbin, M_av, llh_exp_ATLAS13, 'pred')
+!            call HiggsBounds_get_likelihood(170907242, Hindex, nc, cbin, M_av, llh_exp_ATLAS13, 'pred')
 ! Get observed likelihood
-            call HiggsBounds_get_likelihood(170907242, Hindex, nc, cbin, M_av, llh_ATLAS13, 'obs')
+!            call HiggsBounds_get_likelihood(170907242, Hindex, nc, cbin, M_av, llh_ATLAS13, 'obs')
 
 ! Get expected/predicted likelihood
             call HiggsBounds_get_likelihood(200212223, Hindex, nc, cbin, M_av, llh_exp_ATLAS20, 'pred')
 ! Get observed likelihood
             call HiggsBounds_get_likelihood(200212223, Hindex, nc, cbin, M_av, llh_ATLAS20, 'obs')
 
-            write (434, *) HBresult, chan, obsratio, ncombined, &
-                 HBresult_all, chan_all, obsratio_all, ncombined_all, &
-                 Hindex, M_av, nc, cbin, llh_CMS8, llh_exp_CMS8, llh_CMS13, &
-                 llh_exp_CMS13, llh_ATLAS13, llh_exp_ATLAS13, llh_ATLAS20, llh_exp_ATLAS20
+            write (434, *) llh_CMS8, llh_exp_CMS8, llh_CMS13, llh_exp_CMS13, &
+                 llh_ATLAS20, llh_exp_ATLAS20
             
          else
             close (fileid2)
