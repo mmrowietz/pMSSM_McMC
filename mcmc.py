@@ -9,12 +9,13 @@ import numpy as np
 import utils
 import likelihood
 import subprocess
-
 from datetime import datetime
+import pyslha
 
 # set up the parameter ranges 
 # positive definite only: signs dealt with below
 parameter_ranges ={}
+
 parameter_ranges["tb"] = (1,60)
 parameter_ranges["Mh3"] = (100,25000)
 parameter_ranges["mu"] = (80,25000) # can be <0
@@ -53,7 +54,7 @@ sisoexe = packagedir+"superiso_v4.0/slha.x"
 sisochi2exe = packagedir+"superiso_v4.0/slha_chi2_reduced.x"#use only branching ratios in superiso chi2. takes approximately 8s/call
 hbexe = "./packages/higgsbounds/build/HiggsBounds"
 hbchi2exe = "./packages/higgsbounds/build/example_programs/HBwithLHClikelihood_SLHA"
-hsexe ="./packages/higgssignals/build/HiggsSignals"
+hsexe = "./packages/higgssignals/build/HiggsSignals"
 mmgsexe = packagedir+"micromegas_5.2.4/MSSM/main"
 gm2exe = packagedir+"GM2Calc-1.7.3/build/bin/gm2calc.x"
 
@@ -85,15 +86,15 @@ tree_branches["BR_b_to_s_gamma"] = {"container":np.zeros(1,dtype=float),"dtype":
 tree_branches["siso_chi2"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
 tree_branches["siso_chi2_ndf"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
 
-#tree_branches["hb_stdout"]={"container":TString(),"dtype":"TString"}
-#tree_branches["hb_ch1"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
-#tree_branches["hb_ch1_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
-#tree_branches["hb_ch2"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
-#tree_branches["hb_ch2_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
-#tree_branches["hb_ch3"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
-#tree_branches["hb_ch3_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
-#tree_branches["hb_ch4"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
-#tree_branches["hb_ch4_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+tree_branches["hb_stdout"]={"container":TString(),"dtype":"TString"}
+tree_branches["hb_ch1"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+tree_branches["hb_ch1_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+tree_branches["hb_ch2"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+tree_branches["hb_ch2_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+tree_branches["hb_ch3"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+tree_branches["hb_ch3_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+tree_branches["hb_ch4"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
+tree_branches["hb_ch4_exclusion"]={"container":np.zeros(1,dtype=int),"dtype":"I"}
 
 tree_branches["hb_chi2_stdout"]={"container":TString(),"dtype":"TString"}
 tree_branches["llh_CMS8"]={"container":np.zeros(1,dtype=float),"dtype":"D"}
@@ -133,16 +134,25 @@ def generate_point(input_point = {}):
         for parameter,parameterrange in parameter_ranges.items():
             in_range = False
 
-            # constant width, log mean
-            width = log(width_coefficient*(parameterrange[1]-parameterrange[0]),base)
-            mean = log(abs(input_point[parameter]),base)
+            if True: # constant width, log mean
+                width = width_coefficient*log(parameterrange[1]-parameterrange[0],base)
+                #log(width_coefficient*(parameterrange[1]-parameterrange[0]),base)
+                mean = log(abs(input_point[parameter]),base)
             
-            while not in_range:
-                parametervalue = pow(base,random.gauss(mean,width))                
-                in_range = parametervalue > parameterrange[0] and parametervalue < parameterrange[1]
+                while not in_range:
+                    parametervalue = pow(base,random.gauss(mean,width))                
+                    in_range = parametervalue > parameterrange[0] and parametervalue < parameterrange[1]
                 
+            if False: # constant width, lin mean
+                width = width_coefficient*(parameterrange[1]-parameterrange[0])
+                mean = input_point[parameter]
+                
+                while not in_range:
+                    parametervalue = random.gauss(mean,width)
+                    in_range = parametervalue > parameterrange[0] and parametervalue < parameterrange[1]
+
             output_point[parameter] = np.sign(input_point[parameter])*parametervalue
-            
+                
         output_point["mtop"]= random.gauss(input_point["mtop"],0.9*width_coefficient)
         output_point["mbottom"]= random.gauss(input_point["mbottom"],((0.18+0.04)/2)*width_coefficient)
         output_point["alpha_s"] = random.gauss(input_point["alpha_s"],0.0011*width_coefficient)
@@ -153,15 +163,10 @@ def generate_point(input_point = {}):
 
 # SPheno
 def run_spheno(inpath,devnull):
-
     cmd = " ".join([spnexe,inpath,devnull])
-
-#    t1 = datetime.now()
-#    print("Run SPheno")
     os.system(cmd)
-#    print(datetime.now()-t1)
-    
     error = open("Messages.out","r").read()
+#    print(error)
     return len(error) == 0
 
 # FeynHiggs
@@ -171,82 +176,33 @@ def run_feynhiggs(devnull):
     fhin = FeynHiggs output file
     spnin = SPheno output file
     """
- 
+
     fhin = "SPheno.spc.fh-001"#again, writing a lot of files to disk
     spnin = "SPheno.spc"
     cmd = " ".join([fhexe,spnin,devnull])
-
+    
     t1 = datetime.now()
-    print("Run FeynHiggs")
-    os.system(cmd)# run FeynHiggs
-    print(datetime.now()-t1)
+    os.system(cmd)# run FeynHiggs                                           
+    print("FeynHiggs",str(datetime.now()-t1))
 
     if not os.path.exists(fhin):#check to see whether FeynHiggs produced an output
         print "could not find Feynhiggs output, skipping point"
         return False
-    #fhin part: Get the new Higgs parameters
-    masses = {"Mh0":"","MHH":"","MA0":"","MHp":"","MW":""}#dictionary to collect the FeynHiggs Higgs masses
-    dmassblock= "Block"# No replacing needs to be done here, can just append the whole block at the end
-    alpha = -1# for the FeynHiggs alpha values
-    decaytabs = {"25":"","35":"","36":"","37":"","24":""}#dictionary to collect the FeynHiggs decay tables
-    with open(fhin,"r") as feynin:
-        fhtab = feynin.read()
-        blocks = fhtab[:fhtab.find("DECAY")].split("BLOCK")#put all the block in a list
-        decays = fhtab[fhtab.find("DECAY"):].split("DECAY")#put the decay tables in a list
-        for block in blocks:# loop over the slha blocks
-            blocklines = block.split("\n")
-            blockname =blocklines[0].strip()
-            if blockname == "MASS":#we are only interested in the MASS block
-                for bline in blocklines[1:-1]: #iterate over the lines with the particle masses
-                    ptc = bline[bline.find("#")+1:].strip()#particle name
-                    val = bline.split("   ")[-2].strip()#particle mass
-                    if ptc in masses.keys():#only interested in the Higgs bosons
-                        masses[ptc] = val.lower()#write value to dictionay
-            if blockname == "DMASS":#just append the block
-                dmassblock+=block
-            if blockname == "ALPHA":#This block only contains the one value
-                alpha = blocklines[1]
-                alpha = alpha[:alpha.find("#")].strip()
-        for decay in decays:#loop over decay blocks for the different particles
-            pdgid = decay.split("\n")[0]
-            pdgid = pdgid[:pdgid.find(".")-1].strip()#this is the pdgid to which the decay block belongs
-            if pdgid in decaytabs:#only interested in Higgs boson decay tables
-                decaytabs[pdgid] = "DECAY"+decay#save the respective decay blocks
-    #spnin part: find the obsolete Higgs-related parts in the SPheno generated SLHA file
-    translate = {"h0":"Mh0","H0":"MHH","A0":"MA0","H)+":"MHp","W+":"MW"}# dictionary to translate from SPheno naming convention to FeynHiggs naming convention
-    with open(spnin,"r") as tmpin:
-        spntab = tmpin.read()#original file content
-        newcont = spntab#copy of the original file content. This will be modified with the FeynHiggs masses and decays, then replace the original content
-        blocks = spntab[:spntab.find("DECAY")].split("Block")#SPheno SLHA blocks
-        decays = spntab[spntab.find("DECAY"):].split("DECAY")#SPheno decay tables
-        replaceblock = "\n".join([dmassblock,"# Higgs mixing\n"])#Puts the DMASS block below the MASS block (and above the Higgs mixing part of the SLHA)
-        newcont = newcont.replace("# Higgs mixing\n",replaceblock)#insert the DMASS block
-        #beware: the order of replacement in this string might matter
-        for block in blocks:#loop over SLHA blocks
-            blocklines = block.split("\n")
-            blockname =blocklines[0][:blocklines[0].find("#")].strip()
-            if blockname == "MASS":#only interested in MASS block
-                for bline in blocklines[1:-2]:#crop the mass block to relevant part, then loop over it
-                    ptc = bline[bline.find("#")+1:].strip()#Particle name of the mass block, beware SPheno naming convention differs from FeynHiggs
-                    val = bline.split("  ")[-2].strip()# particle mass
-                    if ptc in translate.keys():#Only interested in Higgs boson masses
-                        replaceline = bline.replace(val,masses[translate[ptc]])#replace the line containing the mass in SPheno with the FeynHiggs line
-                        newcont = newcont.replace(bline,replaceline)#replace the SPheno line
-            if blockname == "alpha":#replace the alpha value
-                spnalpha = blocklines[1]
-                spnalpha = spnalpha[:spnalpha.find("#")].strip()
-                replaceline = blocklines[1].replace(spnalpha,alpha)
-                newcont = newcont.replace(blocklines[1],replaceline)
-        #now replace the decay tables
-        for decay in decays:
-            pdgid = decay.split("\n")[0]
-            pdgid = pdgid[:pdgid.find(".")-1].strip()
-            if pdgid in decaytabs:#only interested in Higgs boson tables
-                newcont = newcont.replace("DECAY"+decay,decaytabs[pdgid])#replace the decay table for the Higgs bosons
-        #write out new file
-    with open(spnin,"w") as outfile:
-        outfile.write(newcont)#overwrite SPheno file
-#    os.system("rm "+fhin)# clean up
+
+    # Replace Higgs parameters from SPheno with FeynHiggs
+    dspnin = pyslha.read(spnin)
+    dfhin = pyslha.read(fhin)
+
+    dspnin.blocks["DMASS"] = dfhin.blocks["DMASS"]
+    dspnin.blocks["ALPHA"] = dfhin.blocks["ALPHA"]
+
+    particles_to_replace = [24,25,35,36,37]
+    for particle in particles_to_replace:
+        dspnin.blocks["MASS"][particle] = dfhin.blocks["MASS"][particle]
+        dspnin.decays[particle] = dfhin.decays[particle]
+
+    pyslha.writeSLHAFile("SPheno.spc",dspnin)
+
     return True
 
 def get_observables(slhapath):
@@ -254,64 +210,46 @@ def get_observables(slhapath):
     get the observables from the slha file
     """
     returndict = {}
-    with open(slhapath,"r") as slhain:
-        slhacont = slhain.read()
-        blocks = slhacont.split("Block")[1:]
-        #get the masses
-        mblock = blocks[14]
-        masses = mblock.split("\n")[2:-2]
+    
+    d = pyslha.read(slhapath)
 
-        returndict["mtop"] = {"value":float(" ".join(masses[0].split()).split()[1])}
-        returndict["mhiggs"] = {"value":float(" ".join(masses[4].split()).split()[1])}
-        returndict["mW"] = {"value":float(" ".join(masses[2].split()).split()[1])}
+    if "MASS" in d.blocks:
+        returndict["mtop"] = {"value":float(d.blocks["MASS"][6])}
+        returndict["mhiggs"] = {"value":float(d.blocks["MASS"][25])}
+        returndict["mW"] = {"value":float(d.blocks["MASS"][24])}
+    else:
+        print("Error: no block MASS in SLHA file")
 
-        #get the higgs mass uncertainty
-        dmblock = blocks[15]
-        dmasses = dmblock.split("\n")[1:-1]
+    if "SMINPUTS" in d.blocks:
+        returndict["mbottom"] = {"value":float(d.blocks["SMINPUTS"][5])}
+        returndict["alpha_s"] = {"value":float(d.blocks["SMINPUTS"][3])}
+    else:
+        print("Error: no block SMINPUTS in SLHA file")
 
+    if "HIGGSSIGNALSRESULTS" in d.blocks:
         try:
-            returndict["mhiggs"]["uncertainty"]=float(" ".join(dmasses[0].split()).split()[1])
+            returndict["hs_chi2"] = {"value":float(d.blocks["HIGGSSIGNALSRESULTS"][17]),"special_case":""}
+            returndict["hs_chi2_ndf"] = {"value":float(d.blocks["HIGGSSIGNALSRESULTS"][8]),"special_case":""}
         except:
-            print " ".join(dmasses[0].split()).split()
-            exit()
-        #get alpha_s
-        smblock = blocks[5]
-        sminputs = smblock.split("\n")[1:-1]
-        returndict["alpha_s"] = {"value":float(" ".join(sminputs[2].split()).split()[1])}
-        returndict["mbottom"] = {"value":float(" ".join(sminputs[4].split()).split()[1])}
-
-        # get higgs bounds exclusions
-#        hbblock = blocks[30]
-#        hbblock = hbblock.split("(rank = 0: global result)")[-1]
-#        hbinputs = hbblock.split("\n")[1:-1]
+            print "something went wrong with HiggsSignals"
+            print "rejecting candidate point"
+            return -1
+                                            
+    else:
+        print("Error: no block HIGGSSIGNALSRESULTS in SLHA file")
         
-#        try:
-#            returndict["hb_ch1"] = {"value":int(hbinputs[0].split()[2]),"special_case":""}
-#            returndict["hb_ch1_exclusion"] = {"value":int(hbinputs[1].split()[2]),"special_case":""}
-#            returndict["hb_ch2"] = {"value":int(hbinputs[5].split()[2]),"special_case":""}
-#            returndict["hb_ch2_exclusion"] = {"value":int(hbinputs[6].split()[2]),"special_case":""}
-#            returndict["hb_ch3"] = {"value":int(hbinputs[10].split()[2]),"special_case":""}
-#            returndict["hb_ch3_exclusion"] = {"value":int(hbinputs[11].split()[2]),"special_case":""}
-#            returndict["hb_ch4"] = {"value":int(hbinputs[15].split()[2]),"special_case":""}
-#            returndict["hb_ch4_exclusion"] = {"value":int(hbinputs[16].split()[2]),"special_case":""}
-
-#        except:
-#            print("Problem getting exclusions from HiggsBounds")
-#            returndict["hb_ch1"] = {"value":-1,"special_case":""}
-#            returndict["hb_ch1_exclusion"] = {"value":-1,"special_case":""}
-#            returndict["hb_ch2"] = {"value":-1,"special_case":""}
-#            returndict["hb_ch2_exclusion"] = {"value":-1,"special_case":""}
-#            returndict["hb_ch3"] = {"value":-1,"special_case":""}
-#            returndict["hb_ch3_exclusion"] = {"value":-1,"special_case":""}
-#            returndict["hb_ch4"] = {"value":-1,"special_case":""}
-#            returndict["hb_ch4_exclusion"] = {"value":-1,"special_case":""}
-
-        # get higgs signals chi2
-        hsblock = blocks[30]
-        hsinputs = hsblock.split("\n")[1:-1]
-        returndict["hs_chi2"] = {"value":float(" ".join(hsinputs[48].split()).split()[1]),"special_case":""}
-        returndict["hs_chi2_ndf"] = {"value":float(" ".join(hsinputs[39].split()).split()[1]),"special_case":""}
-        
+    if "HIGGSBOUNDSRESULTS" in d.blocks:
+            returndict["hb_ch1"] = {"value":int(d.blocks["HIGGSBOUNDSRESULTS"][0,1]),"special_case":""}
+            returndict["hb_ch1_exclusion"] = {"value":int(d.blocks["HIGGSBOUNDSRESULTS"][0,2]),"special_case":""}
+            returndict["hb_ch2"] = {"value":int(d.blocks["HIGGSBOUNDSRESULTS"][1,1]),"special_case":""}
+            returndict["hb_ch2_exclusion"] = {"value":int(d.blocks["HIGGSBOUNDSRESULTS"][1,2]),"special_case":""}
+            returndict["hb_ch3"] = {"value":int(d.blocks["HIGGSBOUNDSRESULTS"][2,1]),"special_case":""}
+            returndict["hb_ch3_exclusion"] = {"value":int(d.blocks["HIGGSBOUNDSRESULTS"][2,2]),"special_case":""}
+            returndict["hb_ch4"] = {"value":int(d.blocks["HIGGSBOUNDSRESULTS"][3,1]),"special_case":""}
+            returndict["hb_ch4_exclusion"] = {"value":int(d.blocks["HIGGSBOUNDSRESULTS"][3,2]),"special_case":""}
+    else:
+        print("Error: no block HIGGSBOUNDSRESULTS in SLHA file")
+                
     return returndict
 
 # helper function for reading values from superiso output
@@ -324,10 +262,9 @@ def read_superiso_out(search_str,siso_out):
 def run_superiso(slhapath):
 
     t1 = datetime.now()
-    print("Run superiso")
     siso_call = subprocess.Popen([sisoexe,str(slhapath)], stdout=subprocess.PIPE)
     siso_out = siso_call.stdout.read()
-    print(datetime.now()-t1)
+    print("superiso",str(datetime.now()-t1))
 
     if len(siso_out)<10:
         print "something went wrong with siso call!"
@@ -355,10 +292,9 @@ def run_superiso(slhapath):
 def run_superiso_chi2(slhapath):
 
     t1 = datetime.now()
-    print("Run superiso chi2")
     siso_chi2_call = subprocess.Popen([sisochi2exe,str(slhapath)], stdout=subprocess.PIPE)
     siso_chi2_out = siso_chi2_call.stdout.read()
-    print(datetime.now()-t1)
+    print("superiso chi2",str(datetime.now()-t1))
 
     if len(siso_chi2_out)<10:
         print "something went wrong with siso chi2 call!"
@@ -378,11 +314,10 @@ def run_superiso_chi2(slhapath):
 def run_higgssignals(slhapath):
 
     t1 = datetime.now()
-    print("Run HiggsSignals")
     hs_call = subprocess.Popen(hsexe+" latestresults 1 SLHA 3 1 "+slhapath, stdout=subprocess.PIPE,shell=True)
     hs_out = hs_call.stdout.read()
-    print(datetime.now()-t1)
-    
+    print("HiggsSignals",str(datetime.now()-t1))
+
     returndict = {"hs_stdout":{"value":hs_out,"special_case":""}}
     return returndict
     
@@ -390,40 +325,37 @@ def run_higgssignals(slhapath):
 def run_higgsbounds(slhapath):
 
     t1 = datetime.now()
-    print("Run HiggsBounds")
     hb_call = subprocess.Popen(hbexe+" LandH SLHA 3 1 "+slhapath, stdout=subprocess.PIPE,shell=True)
     hb_out = hb_call.stdout.read()
-    print(datetime.now()-t1)
-    
+    print("HiggsBounds",str(datetime.now()-t1))
+
     returndict = {"hb_stdout":{"value":hb_out,"special_case":""}}
     return returndict
 
 def run_higgsbounds_chi2(slhapath):
 
     os.system("ln -s "+slhapath+" "+slhapath+".1")
-
     t1 = datetime.now()
-    print("Run HiggsBounds chi2")
     hb_call = subprocess.Popen(hbchi2exe+" 1 "+slhapath, stdout=subprocess.PIPE,shell=True)
     hb_out = hb_call.stdout.read()
-    print(datetime.now()-t1)
-    
-    returndict = {"hb_chi2_stdout":{"value":hb_out,"special_case":""}}
+    print("HiggsBounds chi2",str(datetime.now()-t1))
 
+    returndict = {"hb_chi2_stdout":{"value":hb_out,"special_case":""}}
+    
     with open("Mh125_HBwithLHClikelihood.dat", "r") as hb_outfile:
          content = hb_outfile.read().split()
 
     try:
-        returndict["llh_CMS8"]        = {"value":float(content[12]),"special_case":""}
-        returndict["llh_CMS13"]       = {"value":float(content[14]),"special_case":""}
-        returndict["llh_ATLAS20"]     = {"value":float(content[18]),"special_case":""}
+        returndict["llh_CMS8"]        = {"value":float(content[1]),"special_case":""}
+        returndict["llh_CMS13"]       = {"value":float(content[3]),"special_case":""}
+        returndict["llh_ATLAS20"]     = {"value":float(content[5]),"special_case":""}
     except:
         print "something went wrong with higgsbounds chi2 call, printing output"
         print hb_out
         print "rejecting candidate point"
         return -1
 
-#    print(returndict["llh_CMS8"]["value"],returndict["llh_CMS13"]["value"],returndict["llh_ATLAS20"]["value"])
+    print(returndict["llh_CMS8"]["value"],returndict["llh_CMS13"]["value"],returndict["llh_ATLAS20"]["value"])
     
     return returndict
 
@@ -431,12 +363,12 @@ def run_higgsbounds_chi2(slhapath):
 def run_micromegas(slhapath):
 
     t1 = datetime.now()
-    print("Run micromegas")
+    print "calling micromegas"
     micromegas_call = subprocess.Popen(mmgsexe+" "+str(slhapath), stdout=subprocess.PIPE,shell=True)
+    print "processing micromegas output"
     micromegas_out = micromegas_call.stdout.read()
-    print(datetime.now()-t1)
-
     print "I got the output! yay! This is it:"
+    print("Micromegas",str(datetime.now()-t1))
 
     print micromegas_out
 
@@ -458,22 +390,23 @@ def run_micromegas(slhapath):
 # GM2Calc                                                                                  
 def run_gm2calc(slhapath):
 
-    with open(slhapath, "a+") as file_object:
-        file_object.write("\n")
-        file_object.write("Block GM2CalcConfig\n")
-        file_object.write("     0     4     # output format \n")
-        file_object.write("     1     2     # loop order (0, 1 or 2) \n")
-        file_object.write("     2     1     # disable/enable tan(beta) resummation (0 or 1) \n")
-        file_object.write("     3     0     # force output (0 or 1) \n")
-        file_object.write("     4     0     # verbose output (0 or 1) \n")
-        file_object.write("     5     1     # calculate uncertainty \n")
-
     t1 = datetime.now()
-    print("Run GM2Calc")
+
+    d = pyslha.read(slhapath)
+    d.blocks["GM2CalcConfig"] = pyslha.Block("GM2CalcConfig")
+    d.blocks["GM2CalcConfig"][0] = 4 # output format
+    d.blocks["GM2CalcConfig"][1] = 2 # loop order (0, 1 or 2)
+    d.blocks["GM2CalcConfig"][2] = 1 # disable/enable tan(beta) resummation (0 or 1)
+    d.blocks["GM2CalcConfig"][3] = 0 # force output (0 or 1)
+    d.blocks["GM2CalcConfig"][4] = 0 # verbose output (0 or 1)
+    d.blocks["GM2CalcConfig"][5] = 1 # calculate uncertainty
+
+    pyslha.writeSLHAFile(slhapath,d)
+    
     gm2_call = subprocess.Popen(gm2exe+" --slha-input-file="+str(slhapath), stdout=subprocess.PIPE,shell=True)
     gm2_out = gm2_call.stdout.read()
-    print(datetime.now()-t1)
-    
+    print("GM2Calc",str(datetime.now()-t1))
+
     returndict = {"gm2calc_stdout":{"value":gm2_out,"special_case":""}}
 
     try:
@@ -481,13 +414,13 @@ def run_gm2calc(slhapath):
         gm2_str = blocks[-1].split()[2]
         gm2_unc_str = blocks[-1].split()[6]
         returndict["Delta_a_mu_x1E11"] = {"value":float(gm2_str)*pow(10,11),"uncertainty":float(gm2_unc_str)*pow(10,11)}
-
+    
     except:
         print "something went wrong with siso call, printing output"
         print gm2_out
         print "rejecting candidate point"
         return -1
-
+    
     return returndict
     
 def setup_tree(outtree):
@@ -507,51 +440,46 @@ def prepare_fill(point,outtree):
         else:#strings are handled differently
             tvals[key] = TString(val)
             outtree.SetBranchAddress(key,tvals[key])
-#            point_info[key]=val
+            #            point_info[key]=val
+
+    d = pyslha.read("SPheno.spc")
+    if "EXTPAR" in d.blocks:
+        point_info["M1"] = d.blocks["EXTPAR"][1]
+        point_info["M2"] = d.blocks["EXTPAR"][2]
+        point_info["M3"] = d.blocks["EXTPAR"][3]
+        point_info["At"] = d.blocks["EXTPAR"][11]
+        point_info["Ab"] = d.blocks["EXTPAR"][12]
+        point_info["Al"] = d.blocks["EXTPAR"][13]
+        point_info["mu"] = d.blocks["EXTPAR"][23]
+        point_info["tb"] = d.blocks["EXTPAR"][25]
+        point_info["Mh3"] = d.blocks["EXTPAR"][26]
+        point_info["Ml1"] = d.blocks["EXTPAR"][31]
+        point_info["Ml2"] = d.blocks["EXTPAR"][32]
+        point_info["Ml3"] = d.blocks["EXTPAR"][33]
+        point_info["Mr1"] = d.blocks["EXTPAR"][34]
+        point_info["Mr2"] = d.blocks["EXTPAR"][35]
+        point_info["Mr3"] = d.blocks["EXTPAR"][36]
+        point_info["Mq1"] = d.blocks["EXTPAR"][41]
+        point_info["Mq2"] = d.blocks["EXTPAR"][42]
+        point_info["Mq3"] = d.blocks["EXTPAR"][43]
+        point_info["Mu1"] = d.blocks["EXTPAR"][44]
+        point_info["Mu2"] = d.blocks["EXTPAR"][45]
+        point_info["Mu3"] = d.blocks["EXTPAR"][46]
+        point_info["Md1"] = d.blocks["EXTPAR"][47]
+        point_info["Md2"] = d.blocks["EXTPAR"][48]
+        point_info["Md3"] = d.blocks["EXTPAR"][49]
 
     with open("SPheno.spc","r") as spnin:
         slhacont = spnin.read()
         slhafile = slhacont
-        blocks = slhacont.split("Block")[1:]
-        params = blocks[4].split("\n")[2:-1]
-        point_info["M1"] = float(" ".join(params[0].split()).split()[1])
-        point_info["M2"] = float(" ".join(params[1].split()).split()[1])
-        point_info["M3"] = float(" ".join(params[2].split()).split()[1])
-        point_info["At"] = float(" ".join(params[3].split()).split()[1])
-        point_info["Ab"] = float(" ".join(params[4].split()).split()[1])
-        point_info["Al"] = float(" ".join(params[5].split()).split()[1])
-        point_info["mu"] = float(" ".join(params[6].split()).split()[1])
-        point_info["tb"] = float(" ".join(params[7].split()).split()[1])
-        point_info["Mh3"] = float(" ".join(params[8].split()).split()[1])
-        point_info["Ml1"] = float(" ".join(params[9].split()).split()[1])
-        point_info["Ml2"] = float(" ".join(params[10].split()).split()[1])
-        point_info["Ml3"] = float(" ".join(params[11].split()).split()[1])
-        point_info["Mr1"] = float(" ".join(params[12].split()).split()[1])
-        point_info["Mr2"] = float(" ".join(params[13].split()).split()[1])
-        point_info["Mr3"] = float(" ".join(params[14].split()).split()[1])
-        point_info["Mq1"] = float(" ".join(params[15].split()).split()[1])
-        point_info["Mq2"] = float(" ".join(params[16].split()).split()[1])
-        point_info["Mq3"] = float(" ".join(params[17].split()).split()[1])
-        point_info["Mu1"] = float(" ".join(params[18].split()).split()[1])
-        point_info["Mu2"] = float(" ".join(params[19].split()).split()[1])
-        point_info["Mu3"] = float(" ".join(params[20].split()).split()[1])
-        point_info["Md1"] = float(" ".join(params[21].split()).split()[1])
-        point_info["Md2"] = float(" ".join(params[22].split()).split()[1])
-        point_info["Md3"] = float(" ".join(params[23].split()).split()[1])
-        sms =  blocks[5].split("\n")[1:-1]
-        point_info["alpha_s"] = float(" ".join(sms[2].split()).split()[1])
-        point_info["mbottom"] = float(" ".join(sms[4].split()).split()[1])
-        point_info["mtop"] = float(" ".join(sms[5].split()).split()[1])
-        masses = blocks[14].split("\n")[2:-2]
-        point_info["mhiggs"] = float(" ".join(masses[4].split()).split()[1])
-        point_info["mW"] = float(" ".join(masses[2].split()).split()[1])
-        slha_file = TString(slhafile)
-        outtree.SetBranchAddress("slha_file",slha_file)
+    slha_file = TString(slhafile)
+    outtree.SetBranchAddress("slha_file",slha_file)
+
     for key in tree_branches.keys():#exclude strings
         if tree_branches[key]["dtype"]=="TString":continue
         tree_branches[key]["container"][0]=point_info[key]
-    return point_info
 
+    return point_info
 
 def run(arguments):
     mode = arguments.mode
@@ -578,16 +506,20 @@ def run(arguments):
         while not finite_lh:
             utils.clean()
             spnerr = False
-            while not spnerr:#find a viable point
+            n_spnerr = 0
+            while not spnerr:#find a viable point                                                        
+                n_spnerr += 1
                 utils.clean()
-                candidate = generate_point()#generate a point from flat prior
-                spnin = utils.write_spheno_input(candidate)#write the input for spheno
-                spnerr = run_spheno(spnin,devnull) #run spheno, check if viable point
+                candidate = generate_point(lastaccepted)#generate a point from the last point                       
+                spnin = utils.write_spheno_input(candidate)#write the input for spheno                            
+                spnerr = run_spheno(spnin,devnull) #run spheno, check if viable point                             
 
-            if not run_feynhiggs(devnull):#run feynhiggs, replace higgs sector
+            print("SPheno errs:",n_spnerr)
+            if not run_feynhiggs(devnull):#run feynhiggs, replace higgs sector                                
                 continue
 
             gm2_obs = run_gm2calc(slhapath="SPheno.spc")
+
 
 #            hb_obs = run_higgsbounds(slhapath="SPheno.spc")
             hb_obs = run_higgsbounds_chi2(slhapath="SPheno.spc")
@@ -625,6 +557,7 @@ def run(arguments):
         for obs in observables.keys():
             lastaccepted[obs] = observables[obs]["value"]
 
+#        print(type(observables["Delta_a_mu_x1E11"]["value"]))
         lastaccepted = prepare_fill(lastaccepted,outtree)#add the rest of the point info, fill the tree branches
         outtree.Fill()
 
@@ -694,7 +627,8 @@ def run(arguments):
             for obs in gm2_obs:
                 observables[obs] = gm2_obs[obs]
             for obs in hb_obs:
-                observables[obs] = hb_obs[obs]                
+                observables[obs] = hb_obs[obs]
+                
 #            for obs in mmgs_obs:
 #                observables[obs] = mmgs_obs[obs]
 
