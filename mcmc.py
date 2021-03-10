@@ -233,6 +233,7 @@ def get_observables(slhapath):
         except:
             print "something went wrong with HiggsSignals"
             print "rejecting candidate point"
+            print(d)
             return -1
                                             
     else:

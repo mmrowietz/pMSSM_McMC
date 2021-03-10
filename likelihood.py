@@ -1,5 +1,6 @@
 import utils
 import random
+import numpy as np
 import math
 
 likelihood_contributions ={}
@@ -21,7 +22,7 @@ likelihood_contributions["mW"] = {"value":80.379,"uncertainty":0.012}
 # from gm2calc
 # https://pdg.lbl.gov/2019/reviews/rpp2018-rev-g-2-muon-anom-mag-moment.pdf
 # scale by 1E11
-likelihood_contributions["Delta_a_mu_x1E11"]={"value":261,"uncertainty":63.}
+#likelihood_contributions["Delta_a_mu_x1E11"]={"value":261,"uncertainty":63.}
 
 # from SPheno
 # https://pdg.lbl.gov/2020/listings/rpp2020-list-B-plus-minus.pdf
@@ -87,9 +88,9 @@ def get_likelihood(observables):
     product_likelihood *= (coeff*math.exp(-chi2/2))
 
     # higgs bounds chi2
-#    product_likelihood *= observables["llh_CMS8"]["value"]
-#    product_likelihood *= observables["llh_CMS13"]["value"]
-#    product_likelihood *= observables["llh_ATLAS20"]["value"]
+    product_likelihood *= np.exp(observables["llh_CMS8"]["value"])
+    product_likelihood *= np.exp(observables["llh_CMS13"]["value"])
+    product_likelihood *= np.exp(observables["llh_ATLAS20"]["value"])
     
     return product_likelihood
 
