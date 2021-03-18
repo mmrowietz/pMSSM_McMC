@@ -4,8 +4,14 @@ npoints=$1
 echo "Sourcing setup scripts"
 source /root-6.12.06-build/bin/thisroot.sh
 
-ln -s /afs/cern.ch/work/j/jdickins/snowmass/pMSSM_McMC/packages .
-ln -s /afs/cern.ch/work/j/jdickins/snowmass/pMSSM_McMC/*.py .
+#git clone https://github.com/jennetd/pMSSM_McMC.git
+tar -zxvf pMSSM_McMC-develop.tar.gz
+cd pMSSM_McMC
+
+./install-hb.sh 
+export HiggsBounds_DIR=${PWD}/packages/higgsbounds/build/
+
+./install-hs.sh 
 
 outdir=output_${npoints}
 mkdir ${outdir}
